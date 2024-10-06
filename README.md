@@ -12,7 +12,7 @@ SODAR URL: [Fracture healing and aging scSeq](https://sodar.bihealth.org/project
 
 CUBI gitlab URL: [https://gitlab.cubi.bihealth.org/functional-genomics/single-cell/fracture-healing-and-aging-scseq](https://gitlab.cubi.bihealth.org/functional-genomics/single-cell/fracture-healing-and-aging-scseq)
 
-HPC directory: [data/cephfs-1/work/groups/cubi/projects/2023-11-30_Fracture_healing_and_aging_scSeq_Mireille_Miha](url)
+HPC directory: [data/cephfs-1/work/groups/cubi/projects/2023-11-30_Fracture_healing_and_aging_scSeq_Mireille_Miha](https://hpc-portal.cubi.bihealth.org/pun/sys/dashboard/files/fs//data/cephfs-1/work/groups/cubi/projects/2023-11-30_Fracture_healing_and_aging_scSeq_Mireille_Miha)
 
 # Project status
 
