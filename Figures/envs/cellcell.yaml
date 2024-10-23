@@ -1,0 +1,23 @@
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base
+  - r-essentials
+  - r-devtools
+  - r-seurat
+  - r-tidyverse
+  - r-gtools
+  - r-hdf5r
+  - r-rmarkdown
+  - r-knitr
+  - r-dt
+  - r-plyr
+  - r-sctransform
+  - r-seurat
+  - r-ggpubr
+  - r-patchwork
+  - r-stringr
+  - bioconductor-scater
+  - bioconductor-cellid

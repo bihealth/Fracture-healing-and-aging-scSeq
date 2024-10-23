@@ -1,0 +1,313 @@
+---
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+params:
+  title: "Cell Chat"
+  object: "Figures/data/sobj_group_force_final_version.rds"
+  git_path: "/data/cephfs-1/work/groups/cubi/projects/2023-11-30_Fracture_healing_and_aging_scSeq_Mireille_Miha/fracture-healing-and-aging-scseq"
+  figure_out_path: "/mnt/d/onedrive/OneDrive - Charité - Universitätsmedizin Berlin/Third version/Figures/redone/"
+  gene_info: "Figures/data/gene_id_name_type.tsv"
+title: "`r params$title`"
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, cache.lazy=FALSE, message=FALSE, warning=FALSE)
+
+suppressPackageStartupMessages(library(Seurat))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(gtools))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(cowplot))
+suppressPackageStartupMessages(library(ggrepel))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(RColorBrewer))
+suppressPackageStartupMessages(library(patchwork))
+suppressPackageStartupMessages(library(nichenetr))
+suppressPackageStartupMessages(library(SeuratObject))
+suppressPackageStartupMessages(library(tidyverse))
+
+
+options(future.globals.maxSize = 12 * 1024 * 1024^2)
+
+```
+
+For this analysis, we used the following parameters:
+
+```{r print parameters}
+
+pars <- as.data.frame(do.call("rbind", params))
+colnames(pars) <- "parameters_used"
+pars
+
+```
+
+Load Seurat object.
+
+```{r read_object, fig.height=4, fig.width=8}
+
+git_path <- params$git_path
+figure_out_path <- params$figure_out_path
+
+sobj <- readRDS(file=file.path(git_path,params$object))
+```
+
+
+
+Renaming the Age group
+```{r rename group}
+
+sobj$Age_raw<-NULL
+Idents(sobj)<-sobj$age_strain
+new.cluster.ids <- c("Young","Immune-aged","Aged")
+names(new.cluster.ids) <- levels(sobj)
+sobj$Age_raw<-Idents(sobj)
+
+add_meta_strain <- sobj[[]] %>%
+  tibble::rownames_to_column("cells") %>%
+  select(cells, Age_raw,compartment,timepoint) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
+                       ifelse(Age_raw=="26w_nonSPF", "Immune-aged", 
+                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  mutate(compartment=ifelse(compartment=="fx", "hematoma", compartment)) %>%
+  mutate(group=paste0(strain,"_",timepoint,"_",compartment)) %>%
+  select(cells, strain, group) %>%
+  tibble::column_to_rownames("cells")
+
+sobj <- AddMetaData(sobj, metadata = add_meta_strain)
+
+```
+
+Renaming a few cell types.
+```{r rename cells}
+
+Idents(sobj)<-sobj$seurat_clusters
+new.cluster.ids <- c( "Monocytes", "Neutrophils", "Myeloid Precursor", "Monocytes", "Eosinophils",
+                      "Monocytes", "Dendritic Cells", "Neutrophils", "Myeloid Precursor", "Myeloid Precursor",
+                      "Myeloid Precursor", "T Cells", "Neutrophils", 
+                      "B Cells","Monocytes", "B Cells","HPCs","Monocytes","T Cells","Neutrophils","Monocytes", "Monocytes","NK Cells","Basophils","Monocytes","HPCs","Erythroblast","B Cells","Eosinophils","Monocytes","Plasma Cells")
+
+names(new.cluster.ids) <- levels(sobj)
+sobj <- RenameIdents(sobj, new.cluster.ids)
+sobj$CellTypes<-Idents(sobj)
+
+```
+
+```{r process,fig.height=10,fig.width=8}
+
+organism <- "mouse"
+
+if(organism == "human"){
+  lr_network <- readRDS(url("https://zenodo.org/record/7074291/files/lr_network_human_21122021.rds"))
+  ligand_target_matrix <- readRDS(url("https://zenodo.org/record/7074291/files/ligand_target_matrix_nsga2r_final.rds"))
+  weighted_networks <- readRDS(url("https://zenodo.org/record/7074291/files/weighted_networks_nsga2r_final.rds"))
+} else if(organism == "mouse"){
+  lr_network <- readRDS(url("https://zenodo.org/record/7074291/files/lr_network_mouse_21122021.rds"))
+  ligand_target_matrix <- readRDS(url("https://zenodo.org/record/7074291/files/ligand_target_matrix_nsga2r_final_mouse.rds"))
+  weighted_networks <- readRDS(url("https://zenodo.org/record/7074291/files/weighted_networks_nsga2r_final_mouse.rds"))
+
+}
+
+```
+
+
+```{r make diff cellchat}
+
+lr_network <- lr_network %>% distinct(from, to)
+head(lr_network)
+
+ligand_target_matrix[1:5,1:5] # target genes in rows, ligands in columns
+head(weighted_networks$lr_sig) # interactions and their weights in the ligand-receptor + signaling network
+
+head(weighted_networks$gr) # interactions and their weights in the gene regulatory network
+
+
+
+```
+
+```{r, fig.width=5,fig.height=5}
+
+receiver = "B Cells"
+expressed_genes_receiver <- get_expressed_genes(receiver, sobj, pct = 0.01)
+
+all_receptors <- unique(lr_network$to)  
+expressed_receptors <- intersect(all_receptors, expressed_genes_receiver)
+
+potential_ligands <- lr_network %>% filter(to %in% expressed_receptors) %>% pull(from) %>% unique()
+
+```
+
+```{r}
+
+sender_celltypes <- c("Monocytes")
+
+# Use lapply to get the expressed genes of every sender cell type separately here
+list_expressed_genes_sender <- sender_celltypes %>% unique() %>% lapply(get_expressed_genes, sobj, 0.005)
+expressed_genes_sender <- list_expressed_genes_sender %>% unlist() %>% unique()
+
+potential_ligands_focused <- intersect(potential_ligands, expressed_genes_sender) 
+
+```
+
+```{r geneset oi definition}
+
+condition_oi <-  "Immune-aged_5days_hematoma"
+condition_reference <- "Immune-aged_2days_hematoma"
+
+sobj_receiver <- subset(sobj, CellTypes == receiver)
+
+
+
+res_df <- read.delim(file.path(git_path,"Figures/data/de_results_pseudoid_analysis.tsv"))
+
+
+selected_contrasts <- c("12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx",
+                        "26w_SPF_5days_fx_vs_26w_SPF_2days_fx",
+                        "26w_nonSPF_2days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_SPF_2days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_SPF_2days_fx_vs_26w_nonSPF_2days_fx",
+                        "12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx",
+                        "12w_nonSPF_5days_proximal_vs_12w_nonSPF_5days_fx",
+                        "12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_proximal",
+                        "26w_nonSPF_5days_distal_vs_26w_nonSPF_5days_fx",
+                        "26w_nonSPF_5days_proximal_vs_26w_nonSPF_5days_fx",
+                        "26w_nonSPF_5days_distal_vs_26w_nonSPF_5days_proximal",
+                        "26w_SPF_5days_distal_vs_26w_SPF_5days_fx",
+                        "26w_SPF_5days_proximal_vs_26w_SPF_5days_fx",
+                        "26w_SPF_5days_distal_vs_26w_SPF_5days_proximal")
+
+cs <- data.frame(contrast=unique(res_df$contrast),
+                 new=selected_contrasts)
+
+res_df <- res_df %>%
+  left_join(cs) %>%
+  dplyr::rename(old_contrast=contrast,
+         contrast=new)
+
+gene_info <- read.delim(file.path(git_path,params$gene_info), header=F)
+colnames(gene_info) <- c("gene_id","gene_name","gene_type")
+
+res_df <- res_df %>%
+  left_join(gene_info)
+
+res <- res_df %>%
+  filter(gene_type=="protein_coding")
+
+geneset_oi <- res %>% 
+  filter(contrast=="26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx") %>%
+  filter(padj <= 0.1, abs(log2FoldChange) > 0) %>% 
+  pull(gene_name)
+ 
+####alternatives for genes of interest 
+#FindMarkers oi
+# DE_table_receiver <-  FindMarkers(object = sobj,
+#                                   ident.1 = condition_oi, ident.2 = condition_reference,
+#                                   group.by = "group",
+#                                   min.pct = 0.01) %>% rownames_to_column("gene")
+# 
+# geneset_oi <- DE_table_receiver %>% 
+#   filter(p_val_adj <= 0.1 & abs(avg_log2FC) >= 0.25) %>% 
+#   pull(gene)
+
+## hypothesis oi
+# geneset_oi <- c("Il7r", "Ifngr1", "Ifngr2", "Ifnar1", "Ifnar2")
+
+geneset_oi <- geneset_oi %>% .[. %in% rownames(ligand_target_matrix)]
+```
+
+
+
+
+```{r create cellchat}
+
+background_expressed_genes <- expressed_genes_receiver %>% .[. %in% rownames(ligand_target_matrix)]
+length(background_expressed_genes)
+## [1] 3476
+length(geneset_oi)
+## [1] 260
+
+```
+
+```{r compare}
+
+ligand_activities <- predict_ligand_activities(geneset = geneset_oi,
+                                               background_expressed_genes = background_expressed_genes,
+                                               ligand_target_matrix = ligand_target_matrix,
+                                               potential_ligands = potential_ligands)
+
+ligand_activities <- ligand_activities %>% arrange(-aupr_corrected) %>% mutate(rank = rank(desc(aupr_corrected)))
+ligand_activities
+
+```
+
+
+```{r}
+p_hist_lig_activity <- ggplot(ligand_activities, aes(x=aupr_corrected)) + 
+  geom_histogram(bins=200,color="black", fill="darkorange")  + 
+  geom_vline(aes(xintercept=min(ligand_activities %>% top_n(50, aupr_corrected) %>% pull(aupr_corrected))),
+             color="red", linetype="dashed", size=1) + 
+  labs(x="ligand activity (PCC)", y = "# ligands") +
+  theme_classic()
+
+
+p_hist_lig_activity
+```
+```{r best, fig.height=8, fig.width=3}
+
+best_upstream_ligands <- ligand_activities %>% top_n(30, aupr_corrected) %>% arrange(-aupr_corrected) %>% pull(test_ligand)
+
+vis_ligand_aupr <- ligand_activities %>% filter(test_ligand %in% best_upstream_ligands) %>%
+  column_to_rownames("test_ligand") %>% select(aupr_corrected) %>% arrange(aupr_corrected) %>% as.matrix(ncol = 1)
+
+(make_heatmap_ggplot(vis_ligand_aupr,
+                     "Prioritized ligands", "Ligand activity", 
+                     legend_title = "AUPR", color = "darkorange") + 
+    theme(axis.text.x.top = element_blank()))  
+
+
+```
+
+
+```{r targets, fig.width=15}
+
+active_ligand_target_links_df <- best_upstream_ligands %>%
+  lapply(get_weighted_ligand_target_links,
+         geneset = geneset_oi,
+         ligand_target_matrix = ligand_target_matrix,
+         n = 100) %>%
+  bind_rows() %>% drop_na()
+
+nrow(active_ligand_target_links_df)
+## [1] 637
+head(active_ligand_target_links_df)
+
+
+active_ligand_target_links <- prepare_ligand_target_visualization(
+  ligand_target_df = active_ligand_target_links_df,
+  ligand_target_matrix = ligand_target_matrix,
+  cutoff = 0.33) 
+
+
+order_ligands <- intersect(best_upstream_ligands, colnames(active_ligand_target_links)) %>% rev()
+order_targets <- active_ligand_target_links_df$target %>% unique() %>% intersect(rownames(active_ligand_target_links))
+
+vis_ligand_target <- t(active_ligand_target_links[order_targets,order_ligands])
+
+make_heatmap_ggplot(vis_ligand_target, "Prioritized ligands", "Predicted target genes",
+                    color = "purple", legend_title = "Regulatory potential") +
+  scale_fill_gradient2(low = "whitesmoke",  high = "purple")
+```
+
+
+```{r session}
+
+sessionInfo()
+
+```
+
+

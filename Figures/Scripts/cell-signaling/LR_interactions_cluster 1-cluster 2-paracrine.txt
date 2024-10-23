@@ -1,0 +1,2 @@
+cluster.1	cluster.2	interaction.type	LRscore
+Gnai2	Ednrb	paracrine	0.530312275482755

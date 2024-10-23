@@ -1,0 +1,644 @@
+---
+title: "B cells Anne"
+author: "Mireille Ngokingha Tchouto"
+date: "2023-11-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#install.packages("httr")
+#install.packages("scater")
+#remotes::install_github("mojaveazure/seurat-disk")
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+  #install.packages("BiocManager")
+
+#BiocManager::install("biomaRt")
+#BiocManager::install('multtest')
+#BiocManager::install('limma')
+#install.packages('metap')
+#BiocManager::install("scater")
+#BiocManager::install("dittoSeq")
+#options(connectionObserver = NULL)
+library(magrittr)
+library(pheatmap)
+library(tibble)
+library(scater)
+library(httr)
+library(Seurat)
+library(SeuratDisk)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(cowplot)
+library(igraph)
+library(Matrix)
+library(tidyr)
+library(tidyverse)
+library(RCurl)
+library(plyr)
+library(DESeq2)
+library(plyr)
+library(gtools)
+#library("scDblFinder")
+#library(scRepertoire)
+library(biomaRt)
+#library(metap)
+library(AnnotationHub)
+library(ensembldb)
+#library(Matrix.utils)
+#library(dittoSeq)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+#library(magrittr)
+library(SingleR)
+#library(reshape2)
+#library(S4Vectors)
+library(tibble)
+library(SingleCellExperiment)
+library(scran)
+#library(pheatmap)
+library(apeglm)
+#library(png)
+library(ashr)
+library(DropletUtils)
+library(sctransform)
+library(RColorBrewer)
+library(BiocParallel)
+```
+
+
+```{r}
+Bcells <-readRDS(file= "Bcells.rds")
+Bcells
+DimPlot(Bcells,reduction = "umap")
+```
+
+
+```{r pressure, echo=FALSE}
+#levels(factor(Bcells$group))
+Idents(Bcells)<-Bcells$group
+B_BM<- NULL
+B_BM <-subset(Bcells, idents = c("Yd0_BM", "Yd3_BM","Yd7_BM","Yd3_H","Yd7_H" ))
+#B_BM <-subset(Bcells, idents = c("Yd0_BM", "Yd0_BMe","Yd3_BM","Yd3_BMe","Yd7_BM","Yd7_BMe","Yd3_H","Yd7_H" ))
+B_BM
+DefaultAssay(B_BM) <- "RNA"
+```
+
+```{r}
+DimPlot(B_BM,reduction = "umap")
+```
+
+```{r}
+B_BM <- FindNeighbors(B_BM, dims = 1:20)
+B_BM <- FindClusters(B_BM, resolution = 0.6, algorithm = 1, verbose = TRUE)
+DimPlot(B_BM, reduction = "umap", label = TRUE, label.size = 6)
+```
+
+```{r, fig.width = , fig.height = 4}
+DefaultAssay(B_BM) <- "RNA"
+Idents(B_BM)<-B_BM$seurat_clusters
+FeaturePlot(B_BM, features = c("Vpreb1","Igll1","Tnfrsf13c","Cd38","Ly6a","Fcer2a"), reduction = 'umap', cols = c("lightgrey", "darkred"))
+VlnPlot(B_BM, features =c("Vpreb1","Igll1","Tnfrsf13c","Cd38","Ly6a","Fcer2a"), slot = "counts", log = TRUE)
+```
+
+```{r}
+Idents(B_BM)<-B_BM$seurat_clusters
+new.cluster.ids <- c("Mature B Cells","Immature B Cells","Immature B Cells","Pre/Pro B Cells","Immature B Cells","Pre/Pro B Cells","Pre/Pro B Cells","Pre/Pro B Cells","Pre/Pro B Cells","Mature B Cells")
+names(new.cluster.ids) <- levels(B_BM)
+B_BM <- RenameIdents(B_BM, new.cluster.ids)
+B_BM$annotation<-Idents(B_BM)
+
+```
+
+```{r, fig.width = 7, fig.height = 4}
+
+DimPlot(object = B_BM, reduction = 'umap', label = FALSE, group.by ="annotation")
+```
+
+```{r cluster_composition,fig.width=12,fig.height=6}
+#filter(Time %in% c("Day2","Day5")) %>%
+B_BM@meta.data %>% 
+dplyr::select(new.ident, timepoint, annotation) %>%  dplyr::group_by(new.ident, timepoint, annotation) %>%  dplyr::summarise(cell_freq=n()) %>%  ungroup() %>%  group_by(new.ident) %>%  mutate(cells_in_sample=sum(cell_freq), perc_in_cluster=cell_freq/sum(cell_freq)*100) %>%
+  ggplot(aes(annotation, perc_in_cluster, fill=timepoint))+  geom_boxplot(position=position_dodge(width=.5),width=.5, outlier.shape = 1, outlier.colour = "red")+
+  geom_point(position=position_dodge(width=.5),colour='grey30', shape=1, size=2)+ theme(text = element_text(face = "bold"),
+        axis.text.x=element_text(angle=45, hjust=1, size=20),
+        axis.text.y=element_text(angle=45, hjust=1, size=20),
+        axis.title = element_text(size=20,face="bold"),
+        axis.title.y.right = element_text(size = 20),
+        legend.text=element_text(size=20),
+        legend.title=element_text(size=20),
+        axis.line = element_line(size=1))+ 
+  #facet_wrap(~group, scales = "free", ncol = 1) 
+  theme(axis.text.x = element_text(angle=45,vjust=1,hjust=1))+
+  xlab("")+ylab("% cells_in_sample")
+```
+
+Multiple testing
+```{r}
+library(rstatix)
+x <- filter(cellranger_prox_dist@meta.data, group %in% c("12wfx_2days","12wfx_5days","12wdist_2days","12wdist_5days","12wprox_2days","12wprox_5days")) 
+#x <- cellranger_prox_dist@meta.data
+x <- dplyr::select(x,orig.ident, group, predicted.id) 
+x<- dplyr::group_by(x,orig.ident, group, predicted.id)
+x<- dplyr::summarise(x,cell_freq=n())
+x<- ungroup(x)
+x<-group_by(x,orig.ident)
+x<- mutate(x,cells_in_sample=sum(cell_freq), perc_in_cluster=cell_freq/sum(cell_freq)*100)
+x<- filter(x, predicted.id %in% c("B Cells")) 
+dff<- data.frame(x)
+#t.test(perc_in_cluster ~ group, var.equal = TRUE, data=x)
+df_pval <- dff %>% pairwise_t_test(perc_in_cluster ~ group, paired =F, p.adjust.method = "BH")
+df_pval
+```
+
+```{r}
+#write.csv(df_pval,
+          #paste0("results","_", "multipletesting", "_padjust.csv"),
+          #quote = FALSE, 
+          #row.names = FALSE)
+```
+
+```{r}
+dff <- dff[order(dff$group),]
+dff
+```
+Deseq
+```{r}
+# Extract raw counts and metadata to create SingleCellExperiment object
+cellranger_prox_dist <-readRDS(file= "cellranger_prox_dist_mouse.rds")
+DefaultAssay(cellranger_prox_dist) <- "RNA"
+
+counts <- cellranger_prox_dist@assays$RNA@counts 
+metadata <- cellranger_prox_dist@meta.data
+
+# Set up metadata as desired for aggregation and DE analysis
+metadata$cluster_id <- factor(cellranger_prox_dist@active.ident)
+
+# Create single cell experiment object
+sce_DE <- SingleCellExperiment(assays = list(counts = counts), 
+                           colData = metadata)
+
+# Identify groups for aggregation of counts
+groups <- colData(sce_DE)[, c("predicted.id", "orig.ident")]
+# Named vector of cluster names
+kids <- purrr::set_names(levels(factor(sce_DE$predicted.id)))
+kids
+
+# Total number of clusters
+nk <- length(kids)
+nk
+
+# Named vector of sample names
+sids <- purrr::set_names(levels(factor(sce_DE$orig.ident)))
+
+# Total number of samples 
+ns <- length(sids)
+ns
+# Generate sample level metadata
+
+## Determine the number of cells per sample
+table(sce_DE$orig.ident)
+
+## Turn named vector into a numeric vector of number of cells per sample
+n_cells <- as.numeric(table(sce_DE$orig.ident))
+
+## Determine how to reoder the samples (rows) of the metadata to match the order of sample names in sids vector
+m <- match(sids, sce_DE$orig.ident)
+
+## Create the sample level metadata by combining the reordered metadata with the number of cells corresponding to each sample.
+ei <- data.frame(colData(sce_DE)[m, ], 
+                  n_cells, row.names = NULL) %>% 
+                select(-"predicted.id")
+ei
+# Perform QC if not already performed
+dim(sce_DE)
+
+## Remove lowly expressed genes which have less than 10 cells with any counts
+sce_DE <- sce_DE[rowSums(counts(sce_DE) > 1) >= 10, ]
+
+dim(sce_DE)
+# Aggregate the counts per sample_id and cluster_id
+
+# Subset metadata to only include the cluster and sample IDs to aggregate across
+#groups <- colData(sce_DE)[, c("predicted.id", "orig.ident")]
+#remotes::install_github("cvarrichio/Matrix.utils") 
+library(Matrix.utils)
+# Aggregate across cluster-sample groups
+pb <- aggregate.Matrix(t(counts(sce_DE)), 
+                       groupings = groups, fun = "sum") 
+
+class(pb)
+
+dim(pb)
+
+pb[1:6, 1:6]
+# Not every cluster is present in all samples; create a vector that represents how to split samples
+splitf <- sapply(stringr::str_split(rownames(pb), 
+                                    pattern = "_",  
+                                    n = 2), 
+                 `[`, 1)
+#splitf <-str_sub(rownames(pb), 1, -14)
+#str_sub(names(expr), -12, -1)
+# Turn into a list and split the list into components for each cluster and transform, so rows are genes and columns are samples and make rownames as the sample IDs
+pb <- split.data.frame(pb, 
+                       factor(splitf)) %>%
+        lapply(function(u) 
+                set_colnames(t(u), 
+                             sapply(stringr::str_split(rownames(u), 
+                                    pattern = "_",  
+                                    n = 2), 
+                 `[`, 2)))
+
+class(pb)
+
+# Explore the different components of list
+str(pb)
+# Get sample names for each of the cell type clusters
+
+# prep. data.frame for plotting
+get_sample_ids <- function(x){
+        pb[[x]] %>%
+                colnames()
+}
+
+de_samples <- map(1:length(kids), get_sample_ids) %>%
+        unlist()
+# Get cluster IDs for each of the samples
+
+samples_list <- map(1:length(kids), get_sample_ids)
+
+get_cluster_ids <- function(x){
+        rep(names(pb)[x], 
+            each = length(samples_list[[x]]))
+}
+
+de_cluster_ids <- map(1:length(kids), get_cluster_ids) %>%
+        unlist()
+# Create a data frame with the sample IDs, cluster IDs and condition
+
+gg_df <- data.frame(cluster_id = de_cluster_ids,
+                    orig.ident = de_samples)
+#group=group[str_sub(names(expr), -12, -1)]
+gg_df <- left_join(gg_df, ei[, c("orig.ident", "group","mouse")]) 
+#gg_df <- left_join(gg_df, ei[, c("orig.ident", "group")]) 
+
+
+metadata <- gg_df %>%
+        dplyr::select(cluster_id, orig.ident, group,mouse) 
+        
+metadata  
+# Generate vector of cluster IDs
+clusters <- levels(factor(metadata$cluster_id))
+clusters
+condition <- levels(factor(metadata$group))
+condition
+```
+Deseq loop
+```{r,fig.width=15,fig.height=10}
+dir.create("DESeq2")
+dir.create("DESeq2/pca")
+dir.create("DESeq2/results")
+dir.create("DESeq2/dispersion")
+dir.create("DESeq2/MA")
+dir.create("DESeq2/volcano")
+dir.create("DESeq2/sig_genes")
+celltypes<- c("B Cells","Neutrophils","Myeloid Precursor")
+for (x in celltypes){
+  # Subset the metadata to only the B cells
+  cluster_metadata <- NULL
+  cluster_metadata <- metadata[which(metadata$cluster_id == x), ]
+  # Assign the rownames of the metadata to be the sample IDs
+  rownames(cluster_metadata) <- cluster_metadata$orig.ident
+
+# Subset the counts to only the B cells
+  counts <- pb[[x]]
+
+  cluster_counts <- data.frame(counts[, which(colnames(counts) %in% rownames(cluster_metadata))],check.names = FALSE)
+
+  col_clust_count<- str_sub(colnames(cluster_counts), -12, -1)
+
+  all(rownames(cluster_metadata) == colnames(cluster_counts))
+  # one way: run deseq to on preselected groups
+  #sel <- !grepl("fx", cluster_metadata$group) & grepl("26wSPF", cluster_metadata$group) & grepl("5days", cluster_metadata$group)
+  #cluster_metadata_2 <- cluster_metadata[ sel, ]
+  #cluster_counts_2 <- cluster_counts[ , sel ]
+  
+  # second way: use pseudo-IDs
+  cluster_metadata_3 <- cluster_metadata %>%
+    mutate(age = str_extract(group, "^[0-9]+w")) %>%
+    mutate(strain = str_extract(group, "w(E|SPF|)")) %>% 
+    mutate(time = str_extract(group, "[0-9]+days")) %>%
+    mutate(arm = paste(age, strain, time, sep = "_")) %>%
+    group_by(arm) %>%
+    mutate(pseudoID = sprintf("ID%02d", as.numeric(as.factor(mouse))))
+    
+  dds <- DESeqDataSetFromMatrix(cluster_counts, 
+                              colData = cluster_metadata_3, 
+                              design = ~ group + pseudoID)
+  rld <- rlog(dds, blind=TRUE)
+  DESeq2::plotPCA(rld, intgroup = "group")
+  ggsave(paste0("DESeq2/pca/",x, "_specific_PCAplot.png"))
+  # Run DESeq2 differential expression analysis
+  
+  dds <- DESeq(dds)
+  
+  #con_vec <- c( -1 , 0, 1, rep(0, 17))
+  
+  # interaction (difference of differences)
+  #con_vec <- c( -1, 0, 1, 1, 0, -1, rep(0, 14))
+  #res <- results(dds, contrast = con_vec)
+  
+  png(paste0("DESeq2/dispersion/",x, "_dispersion_plot.png"))
+  plotDispEsts(dds)
+  dev.off()
+  #res <- results(dds,alpha = 0.05)
+  res<-results(dds,contrast=c("group","12wdist_5days","12wdist_2days"),alpha = 0.05)
+  results_list <- as.data.frame(res) %>%
+    rownames_to_column("genes") %>%
+    rename(logFC_12w=log2FoldChange, pvalue_12wF=pvalue,padj_12w=padj)
+  write.csv(results_list,
+                  paste0("DESeq2/results/", x, "_all_genes_noShrinkange.csv"),
+            quote = FALSE, 
+            row.names = FALSE)
+  res<-lfcShrink(dds = dds, contrast=c("group","12wdist_5days","12wdist_2days"),
+                  res=res, type = "ashr")
+  #res<-lfcShrink(dds = dds, coef = 2, type = "apeglm")
+  png(paste0("DESeq2/MA/",x, "_MAplot.png"))
+  plotMA(res, ylim=c(-2,2))
+  dev.off()
+   padj_cutoff <- 0.05
+        # Turn the results object into a tibble for use with tidyverse functions
+        res_tbl <- res %>%
+                data.frame() %>%
+                rownames_to_column(var="gene") %>%
+                as_tibble()
+        
+        write.csv(res_tbl,
+                  paste0("DESeq2/results/", x, "_all_genes.csv"),
+                  quote = FALSE, 
+                  row.names = FALSE)
+        sig_res <- dplyr::filter(res_tbl, padj < padj_cutoff) %>%
+                dplyr::arrange(padj)
+        
+        write.csv(sig_res,
+                  paste0("DESeq2/sig_genes/",x, "_sig_genes.csv"),
+                  quote = FALSE, 
+                  row.names = FALSE)
+  library(EnhancedVolcano)
+EnhancedVolcano(res,
+    lab = rownames(res),
+    x = 'log2FoldChange',
+    y = 'pvalue',
+    pCutoff = 0.05,
+    FCcutoff = 0.6,
+    selectLab = levels(factor(sig_res$gene)),
+    xlab = bquote(~Log[2]~ 'fold change'),
+    pointSize = 4.0,
+    labSize = 10.0,
+    cutoffLineWidth = 2.0,
+    labCol = 'black',
+    labFace = 'bold',
+    boxedLabels = TRUE,
+    colAlpha = 4/5,
+    legendPosition = 'right',
+    legendLabSize = 20,
+    legendIconSize = 15.0,
+    drawConnectors = TRUE,
+    widthConnectors = 1.0,
+    colConnectors = 'black')
+ggsave(paste0("DESeq2/volcano/",x, "_volcanoplot.png"))
+}
+```
+```{r}
+rld <- rlog(dds, blind=TRUE)
+#rld.sub <- rld[,c(1,2,3,4,5,6,7,8)]
+#plotCounts(rld,gene = "Camp",intgroup = "group")
+```
+
+Likelihood ratio test
+
+```{r}
+# Likelihood ratio test
+dir.create("DESeq2/lrt")
+
+# Create DESeq2Dataset object
+clusters <- levels(factor(metadata$cluster_id))
+
+metadata <- gg_df %>%
+        select(cluster_id, orig.ident, group) 
+
+metadata$groups <- paste0(metadata$cluster_id, "_", metadata$group) %>%
+        factor()
+
+
+# DESeq2
+library(DEGreport)
+celltypes<- c("B Cells","Neutrophils","Myeloid Precursor")
+for (x in celltypes){
+        
+        cluster_metadata <- metadata[which(metadata$cluster_id == x), ]
+        rownames(cluster_metadata) <- cluster_metadata$orig.ident
+        counts <- pb[[x]]
+        cluster_counts <- data.frame(counts[, which(colnames(counts) %in% rownames(cluster_metadata))],check.names = FALSE)
+        
+        #all(rownames(cluster_metadata) == colnames(cluster_counts))        
+        
+        dds <- DESeqDataSetFromMatrix(cluster_counts, 
+                                      colData = cluster_metadata, 
+                                      design = ~ group)
+        
+        dds_lrt <- DESeq(dds, test="LRT", reduced = ~ 1)
+        
+        # Extract results
+        res_LRT <- results(dds_lrt)
+        
+        # Create a tibble for LRT results
+        res_LRT_tb <- res_LRT %>%
+                data.frame() %>%
+                rownames_to_column(var="gene") %>% 
+                as_tibble()
+        
+        # Save all results
+        write.csv(res_LRT_tb,
+                  paste0("DESeq2/lrt/", x, "_LRT_all_genes.csv"),
+                  quote = FALSE, 
+                  row.names = FALSE)
+        
+        # Subset to return genes with padj < 0.05
+        sigLRT_genes <- res_LRT_tb %>% 
+                filter(padj < 0.05)
+        
+        # Save sig results
+        write.csv(sigLRT_genes,
+                  paste0("DESeq2/lrt/", x, "_LRT_sig_genes.csv"),
+                  quote = FALSE, 
+                  row.names = FALSE)
+        
+        # Transform counts for data visualization
+        rld <- rlog(dds_lrt, blind=TRUE)
+        
+        # Extract the rlog matrix from the object and compute pairwise correlation values
+        rld_mat <- assay(rld)
+        rld_cor <- cor(rld_mat)
+        
+        
+        # Obtain rlog values for those significant genes
+        cluster_rlog <- rld_mat[sigLRT_genes$gene, ]
+        
+        cluster_meta_sig <- cluster_metadata[which(rownames(cluster_metadata) %in% colnames(cluster_rlog)), ]
+        
+        # # Remove samples without replicates
+        # cluster_rlog <- cluster_rlog[, -1]
+        # cluster_metadata <- cluster_metadata[which(rownames(cluster_metadata) %in% colnames(cluster_rlog)), ]
+        
+        
+        # Use the `degPatterns` function from the 'DEGreport' package to show gene clusters across sample groups
+        cluster_groups <- degPatterns(cluster_rlog, metadata = cluster_meta_sig, time = "group", col=NULL)
+        ggsave(paste0("DESeq2/lrt/", x, "_LRT_DEgene_groups.png"))
+        
+        # Let's see what is stored in the `df` component
+        write.csv(cluster_groups$df,
+                  paste0("DESeq2/lrt/", x, "_LRT_DEgene_groups.csv"),
+                  quote = FALSE, 
+                  row.names = FALSE)
+        
+        #saveRDS(cluster_groups, paste0("DESeq2/lrt/", clusters[x], "_LRT_DEgene_groups.rds"))
+        #save(dds_lrt, cluster_groups, res_LRT, sigLRT_genes, file = paste0("DESeq2/lrt/", clusters[x], "_all_LRTresults.Rdata"))
+        
+}
+
+```
+
+
+```{r}
+#dds<-NULL
+#dds <- DESeqDataSetFromMatrix(cluster_counts, 
+                              #colData = cluster_metadata, 
+                              #design = ~ mouse + group)
+
+dds <- DESeqDataSetFromMatrix(cluster_counts, 
+                              colData = cluster_metadata, 
+                              design = ~ group)
+```
+
+Disco score
+```{r, fig.width = 6, fig.height=4}
+library(tmod)
+#data(tmod)
+#data(orthologs)
+#u <- "https://cran.r-project.org/src/contrib/Archive/disco/disco_0.6.tar.gz"
+#install.packages(u)
+#devtools::install_version('disco', version = '0.6')
+library(disco)
+dataset_1 <- read.csv("C:/Users/Administrator/Documents/Scripts/DEG_plot_table/B_Cells/Spatial/12weeks/DESeq2_fx_dist_5days/results/B Cells_all_genes_noShrinkange.csv")
+dataset_2 <- read.csv("C:/Users/Administrator/Documents/Scripts/DEG_plot_table/B_Cells/Spatial/26weeks_SPF/DESeq2_fx_dist_5days/results/B Cells_all_genes_noShrinkange.csv")
+dataset_3 <- read.csv("C:/Users/Administrator/Documents/Scripts/DEG_plot_table/B_Cells/Spatial/26weeks_non_SPF/DESeq2_dist_fx_5days/results/B Cells_all_genes_noShrinkange.csv")
+#names<- c("26week","26weeks_SPF")
+names<- c("12week","26weeks")
+orthologs <- NULL
+orthologs <- makeMatchedOrtholog(names,dataset_2$genes, dataset_1$logFC_12w,dataset_3$logFC_26w, dataset_1$pvalue_12w,dataset_3$pvalue_26w,row.names = NULL, extra = NULL)
+ds <- disco.score(orthologs)
+#plotDisco(orthologs, ds, tmod$MODULES2GENES[["LI.M1.0"]])
+g <- toupper(orthologs$genes)
+concordant <- tmodCERNOtest(g[order(disco, decreasing = TRUE)])
+discordant <- tmodCERNOtest(g[order(disco)])
+discordant
+modtable <- percentGenes(orthologs, tmod[discordant$ID])
+#cbind(discordant, modtable)
+sum1 <- makeSummary(concordant, discordant)
+#plotDisco(orthologs, ds,tmod$MODULES2GENES[["LI.M4.5"]])
+genes <- getModuleMembers("LI.M4.5")
+plotDisco(orthologs, ds)
+#evidencePlot(toupper(g), m = "LI.M11.0")
+ggEvidencePlot(g, "LI.M4.5")
+tmod_re <- tmodCERNOtest(g) %>% filter(AUC > .50, adj.P.Val < .05)
+#ggPanelplot(tmod_re)
+```
+GGplot (do it like he did with tmod and the finding of genes)
+```{r}
+path_positions<- tmod$gs2gv[[which(tmod$gs$ID=="LI.M4.5")]]
+genes<-tmod$gv[path_positions]
+genes <- tolower(genes)
+both <- as(orthologs, "data.frame")
+both$gene_set_labels <- ifelse(both$gene %in% genes, both$gene, NA)
+both$in_gene_set <- ifelse(both$gene %in% genes & both$colours == "red", "upregulated", 
+                              ifelse(both$gene %in% genes & both$colours == "blue", "downregulated", 
+                                     ifelse(both$gene %in% genes & both$colours == "grey", "unchanged", "not_in_gene_set")))
+
+
+ggplot(both, aes(both[,paste0("log2FoldChange.",lfc_12week)], both[,paste0("log2FoldChange.",lfc_26weeks)], colour = in_gene_set)) + geom_point(shape=1, size = .5) + geom_text_repel(aes(label = gene_set_labels), size = 3, max.overlaps = 100) + ggtitle(paste0("title ",)) + xlab(paste0("12weeks", lfc_12week)) + ylab(paste0("26weeks", lfc_26weeks)) +
+      scale_colour_manual(values = color)
+```
+
+Tmod
+```{r, fig.width = 6, fig.height=4}
+library(tmod)
+#res_tbl <- read.csv("C:/Users/Administrator/Documents/Scripts/DEG_plot_table/B_Cells/Spatial/12weeks/With_mouse_ID/DESeq2_Fx_Prox_2days/results/B Cells_all_genes.csv")
+res_tbl <- read.csv("C:/Users/Administrator/Documents/Scripts/DEG_plot_table/B_Cells/Temporal/12weeks/DESeq2_fx/results/resultsAll_cells__All_genes.csv")
+gl <- res_tbl %>% arrange(pvalue) %>% pull(gene)
+tmodCERNOtest(toupper(gl))
+tmodCERNOtest(toupper(gl)) %>% filter(AUC > .72, adj.P.Val < .05)
+#evidencePlot(toupper(gl), m = "LI.M11.0")
+tmod_re <- tmodCERNOtest(toupper(gl)) %>% filter(AUC > .72, adj.P.Val < .05)
+ggEvidencePlot(toupper(gl), "LI.M54")
+### to have genes name
+ggEvidencePlot(toupper(gl), "DC.M5.15")
+#getModuleMembers("LI.M11.0")
+ggPanelplot(tmod_re)
+sgenes <- tmodDecideTests(g = toupper(res_tbl$gene), lfc = res_tbl$log2FoldChange, pval = res_tbl$padj, lfc.thr = 0, pval.thr = .05)
+names(sgenes) <- "res"
+ggPanelplot(list(res=tmod_re), sgenes = sgenes)
+sgenes$res %>% as.data.frame()
+sgenes$res %>% as.data.frame() %>% rownames_to_column("mod") %>% filter(mod == "DC.M5.15")
+
+```
+Genes
+```{r}
+#up<-res_tbl %>% filter(log2FoldChange < 0.2, padj<0.05) %>% pull(gene)
+path_positions<- tmod$gs2gv[[which(tmod$gs$ID=="DC.M5.15")]]
+genes<-tmod$gv[path_positions]
+res_tbl %>% 
+  mutate(GENE=toupper(gene)) %>%
+  filter(GENE %in% genes)
+```
+Volcano plot
+```{r, fig.width = 10, fig.height=5}
+# Set thresholds
+padj_cutoff <- 0.05
+#padj_cutoff <- 0.1
+
+# Subset the significant results
+sig_res <- dplyr::filter(res_tbl, padj < padj_cutoff,) %>%
+        dplyr::arrange(padj)
+
+# Check significant genes output
+sig_res
+EnhancedVolcano(res_tbl,
+    lab = res_tbl$gene,
+    x = 'log2FoldChange',
+    y = 'pvalue',
+    pCutoff = 0.05,
+    FCcutoff = 0.5,
+    selectLab = levels(factor(sig_res$gene)),
+    xlab = bquote(~Log[2]~ 'fold change'),
+    pointSize = 4.0,
+    labSize = 10.0,
+    cutoffLineWidth = 2.0,
+    labCol = 'black',
+    labFace = 'bold',
+    boxedLabels = TRUE,
+    colAlpha = 4/5,
+    legendPosition = 'right',
+    legendLabSize = 20,
+    legendIconSize = 15.0,
+    drawConnectors = TRUE,
+    widthConnectors = 1.0,
+    colConnectors = 'black')
+```
+
+
+```{r sessionInfo}
+
+sessionInfo()
+```

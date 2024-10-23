@@ -1,0 +1,270 @@
+---
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+params:
+  title: "Cell Chat"
+  object: "Figures/data/sobj_group_force_final_version.rds"
+  git_path: "/mnt/d/work/mireille/fracture-healing-and-aging-scseq"
+  figure_out_path: "/mnt/d/onedrive/OneDrive - Charité - Universitätsmedizin Berlin/Third version/Figures/redone/"
+title: "`r params$title`"
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, cache.lazy=FALSE, message=FALSE, warning=FALSE)
+
+suppressPackageStartupMessages(library(Seurat))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(gtools))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(cowplot))
+suppressPackageStartupMessages(library(ggrepel))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(RColorBrewer))
+suppressPackageStartupMessages(library(patchwork))
+suppressPackageStartupMessages(library(CellChat))
+suppressPackageStartupMessages(library(presto))
+
+options(future.globals.maxSize = 12 * 1024 * 1024^2)
+
+```
+
+For this analysis, we used the following parameters:
+
+```{r print parameters}
+
+pars <- as.data.frame(do.call("rbind", params))
+colnames(pars) <- "parameters_used"
+pars
+
+```
+
+Load Seurat object.
+
+```{r read_object, fig.height=4, fig.width=8}
+
+git_path <- params$git_path
+figure_out_path <- params$figure_out_path
+
+sobj <- readRDS(file=file.path(git_path,params$object))
+```
+
+
+
+Renaming the Age group
+```{r rename group}
+
+sobj$Age_raw<-NULL
+Idents(sobj)<-sobj$age_strain
+new.cluster.ids <- c("Young","Immune-aged","Aged")
+names(new.cluster.ids) <- levels(sobj)
+sobj$Age_raw<-Idents(sobj)
+
+add_meta_strain <- sobj[[]] %>%
+  tibble::rownames_to_column("cells") %>%
+  select(cells, Age_raw) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
+                       ifelse(Age_raw=="26w_nonSPF", "Immune-aged", 
+                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  select(cells, strain) %>%
+  tibble::column_to_rownames("cells")
+
+sobj <- AddMetaData(sobj, metadata = add_meta_strain)
+
+```
+
+Renaming a few cell types.
+```{r rename cells}
+
+Idents(sobj)<-sobj$seurat_clusters
+new.cluster.ids <- c( "Monocytes", "Neutrophils", "Myeloid Precursor", "Monocytes", "Eosinophils",
+                      "Monocytes", "Dendritic Cells", "Neutrophils", "Myeloid Precursor", "Myeloid Precursor",
+                      "Myeloid Precursor", "T Cells", "Neutrophils", 
+                      "B Cells","Monocytes", "B Cells","HPCs","Monocytes","T Cells","Neutrophils","Monocytes", "Monocytes","NK Cells","Basophils","Monocytes","HPCs","Erythroblast","B Cells","Eosinophils","Monocytes","Plasma Cells")
+
+names(new.cluster.ids) <- levels(sobj)
+sobj <- RenameIdents(sobj, new.cluster.ids)
+sobj$CellTypes<-Idents(sobj)
+
+```
+
+```{r dissect}
+
+sobj.a.2d <- sobj %>%
+  subset(strain=="Aged" & compartment=="fx" & timepoint=="2days")%>%
+  createCellChat(group.by="CellTypes", assay="RNA")
+
+sobj.a.5d <- sobj %>%
+  subset(strain=="Aged" & compartment=="fx" & timepoint=="5days")%>%
+  createCellChat(group.by="CellTypes", assay="RNA")
+
+CellChatDB <- CellChatDB.mouse
+CellChatDB.use <- subsetDB(CellChatDB)
+
+sobj.a.2d@DB <-  CellChatDB.use
+sobj.a.5d@DB <-  CellChatDB.use
+
+sobj.a.2d <- subsetData(sobj.a.2d) %>%  
+  identifyOverExpressedGenes() %>%
+  identifyOverExpressedInteractions() %>%
+  computeCommunProb(type="triMean")
+
+sobj.a.5d <- subsetData(sobj.a.5d) %>%  
+  identifyOverExpressedGenes() %>%
+  identifyOverExpressedInteractions() %>%
+  computeCommunProb(type="triMean")
+
+object.list <- list(a.2d = sobj.a.2d, 
+                    a.5d = sobj.a.5d)
+
+cellchat <- mergeCellChat(object.list, add.names = names(object.list))
+
+
+
+gg1 <- compareInteractions(cellchat, show.legend = F, group = c(1,2))
+
+gg1
+
+
+a.2d <- subsetCommunication(sobj.a.2d)
+a.5d <- subsetCommunication(sobj.a.5d)
+
+```
+
+
+```{r create cellchat}
+
+sobj.ia.2d <- sobj %>%
+  subset(strain=="Immune-aged" & compartment=="fx" & timepoint=="2days") %>%
+  createCellChat(group.by="CellTypes", assay="RNA")
+
+sobj.ia.5d <- sobj %>%
+  subset(strain=="Immune-aged" & compartment=="fx" & timepoint=="5days") %>%
+  createCellChat(group.by="CellTypes", assay="RNA")
+
+sobj.a.2d <- sobj %>%
+  subset(strain=="Aged" & compartment=="fx" & timepoint=="2days")%>%
+  createCellChat(group.by="CellTypes", assay="RNA")
+
+sobj.a.5d <- sobj %>%
+  subset(strain=="Aged" & compartment=="fx" & timepoint=="5days")%>%
+  createCellChat(group.by="CellTypes", assay="RNA")
+
+CellChatDB <- CellChatDB.mouse
+CellChatDB.use <- subsetDB(CellChatDB)
+
+
+cellchat <- list(ia_2days=sobj.ia.2d,
+                 ia_5days=sobj.ia.5d,
+                 a_2days=sobj.a.2d,
+                 a_5days=sobj.a.5d)
+
+process_objects <- function(obj){
+  obj@DB <- CellChatDB.use
+  obj <- subsetData(obj) %>%
+    identifyOverExpressedGenes() %>%
+    identifyOverExpressedInteractions() %>%
+    computeCommunProb(type="triMean")
+}
+
+cellchat <- lapply(cellchat, process_objects)
+
+object.list <- list(ia_2days=cellchat[[1]],
+                 ia_5days=cellchat[[2]],
+                 a_2days=cellchat[[3]],
+                 a_5days=cellchat[[4]])
+
+object.list <- list(ia_2days=cellchat[[1]],
+                 ia_5days=cellchat[[2]])
+
+diff.cellchat <- mergeCellChat(object.list, add.names=names(object.list))
+
+
+```
+
+```{r compare}
+
+
+gg1 <- compareInteractions(diff.cellchat, show.legend = F, group=c("ia_2days","ia_5days"))
+netVisual_diffInteraction(diff.cellchat, weight.scale = T)
+
+gg1
+
+```
+
+
+```{r}
+gg2 <- compareInteractions(diff.cellchat, show.legend = F,group=c("ia_2days","ia_5days"), measure = "weight")
+gg1 + gg2
+
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+ptm = Sys.time()
+cellchat <- computeCommunProb(cellchat, type = "triMean")
+
+ia_2d <- subsetCommunication(cellchat[[1]])
+ia_5d <- subsetCommunication(cellchat[[2]])
+
+ia_2d %>% filter(source %in% c("Monocytes", "B Cells"),
+                  target %in% c("Monocytes", "B Cells"))
+
+ia_5d %>% filter(source %in% c("Monocytes", "B Cells"),
+                  target %in% c("Monocytes", "B Cells"))
+
+
+ia_2d <- subsetCommunication(cellchat[[1]],slot.name = "netP")
+ia_5d <- subsetCommunication(cellchat[[2]],slot.name = "netP")
+
+a_2d <- subsetCommunication(cellchat[[3]],slot.name = "netP")
+a_5d <- subsetCommunication(cellchat[[4]],slot.name = "netP")
+
+
+ia_2d %>% filter(source %in% c("Monocytes", "B Cells"),
+                  target %in% c("Monocytes", "B Cells"))
+
+ia_5d %>% filter(source %in% c("Monocytes", "B Cells"),
+                  target %in% c("Monocytes", "B Cells"))
+
+a_2d %>% filter(source %in% c("Monocytes", "B Cells"),
+                  target %in% c("Monocytes", "B Cells"))
+
+a_5d %>% filter(source %in% c("Monocytes", "B Cells"),
+                  target %in% c("Monocytes", "B Cells"))
+
+df.net %>% filter(source %in% c("Monocytes", "B Cells"),
+                  target %in% c("Monocytes", "B Cells"))
+
+df.net.np <- subsetCommunication(cellchat, slot.name="netP")
+
+df.net.np %>% filter(source %in% c("Monocytes", "B Cells"),
+                  target %in% c("Monocytes", "B Cells"))
+
+## focus on cell types - find which are monocyte and b cells
+df.net <- subsetCommunication(cellchat, sources.use = c(1,2), targets.use = c(4,5))
+
+## focus on signalling
+df.net <- subsetCommunication(cellchat, signaling = c("WNT", "TGFb"))
+#
+compareInteractions(diff.cellchat)
+gg1
+
+gg1 <- netVisual_heatmap(diff.cellchat)
+#> Do heatmap based on a merged object
+gg2 <- netVisual_heatmap(cellchat, measure = "weight")
+#> Do heatmap based on a merged object
+gg1 + gg2
+```
+
+```{r session}
+
+sessionInfo()
+
+```
+
+

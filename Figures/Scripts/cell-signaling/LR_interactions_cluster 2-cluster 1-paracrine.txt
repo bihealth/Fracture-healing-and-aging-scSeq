@@ -1,0 +1,3 @@
+cluster.2	cluster.1	interaction.type	LRscore
+Calm1	Scn4a	paracrine	0.566463302634693
+Calm2	Scn4a	paracrine	0.512868236739319

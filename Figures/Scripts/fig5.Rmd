@@ -1,0 +1,733 @@
+---
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+params:
+  title: "Bone healing Fig 5"
+  object: "Figures/data/sobj_group_force_final_version.rds"
+  git_path: "/mnt/d/work/mireille/fracture-healing-and-aging-scseq"
+  figure_out_path: "/mnt/d/onedrive/OneDrive - Charité - Universitätsmedizin Berlin/Third version/Figures/redone/"
+  gene_info: "Figures/data/gene_id_name_type.tsv"
+title: "`r params$title`"
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, cache.lazy=FALSE, message=FALSE, warning=FALSE)
+
+suppressPackageStartupMessages(library(Seurat))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(gtools))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(cowplot))
+suppressPackageStartupMessages(library(DESeq2))
+suppressPackageStartupMessages(library(ggrepel))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(RColorBrewer))
+suppressPackageStartupMessages(library(patchwork))
+suppressPackageStartupMessages(library(tmod))
+# suppressPackageStartupMessages(library(SingleCellSignalR))
+suppressPackageStartupMessages(library(edgeR))
+
+options(future.globals.maxSize = 12 * 1024 * 1024^2)
+
+```
+
+For this analysis, we used the following parameters:
+
+```{r print parameters}
+
+pars <- as.data.frame(do.call("rbind", params))
+colnames(pars) <- "parameters_used"
+pars
+
+```
+
+Load Seurat object.
+
+```{r read_object, fig.height=4, fig.width=8}
+
+git_path <- params$git_path
+figure_out_path <- params$figure_out_path
+
+sobj <- readRDS(file=file.path(git_path,params$object))
+```
+
+
+
+Renaming the Age group
+```{r rename group}
+
+sobj$Age_raw<-NULL
+Idents(sobj)<-sobj$age_strain
+new.cluster.ids <- c("Young","Immune-aged","Aged")
+names(new.cluster.ids) <- levels(sobj)
+sobj$Age_raw<-Idents(sobj)
+
+add_meta_strain <- sobj[[]] %>%
+  tibble::rownames_to_column("cells") %>%
+  select(cells, Age_raw) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
+                       ifelse(Age_raw=="26w_nonSPF", "Immune-aged", 
+                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  select(cells, strain) %>%
+  tibble::column_to_rownames("cells")
+
+sobj <- AddMetaData(sobj, metadata = add_meta_strain)
+
+```
+
+Renaming a few cell types.
+```{r rename cells}
+
+Idents(sobj)<-sobj$seurat_clusters
+new.cluster.ids <- c( "Monocytes", "Neutrophils", "Myeloid Precursor", "Monocytes", "Eosinophils",
+                      "Monocytes", "Dendritic Cells", "Neutrophils", "Myeloid Precursor", "Myeloid Precursor",
+                      "Myeloid Precursor", "T Cells", "Neutrophils", 
+                      "B Cells","Monocytes", "B Cells","HPCs","Monocytes","T Cells","Neutrophils","Monocytes", "Monocytes","NK Cells","Basophils","Monocytes","HPCs","Erythroblast","B Cells","Eosinophils","Monocytes","Plasma Cells")
+
+names(new.cluster.ids) <- levels(sobj)
+sobj <- RenameIdents(sobj, new.cluster.ids)
+sobj$CellTypes<-Idents(sobj)
+
+```
+
+
+Load DESeq2 pseudobulk results. For full documentation of DESeq2 analysis, refer to Scripts/DESeq2.Rmd.
+
+
+```{r res_df}
+
+res_df <- read.delim(file.path(git_path,"Figures/data/de_results_pseudoid_analysis.tsv"))
+
+
+selected_contrasts <- c("12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx",
+                        "26w_SPF_5days_fx_vs_26w_SPF_2days_fx",
+                        "26w_nonSPF_2days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_SPF_2days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_SPF_2days_fx_vs_26w_nonSPF_2days_fx",
+                        "12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx",
+                        "12w_nonSPF_5days_proximal_vs_12w_nonSPF_5days_fx",
+                        "12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_proximal",
+                        "26w_nonSPF_5days_distal_vs_26w_nonSPF_5days_fx",
+                        "26w_nonSPF_5days_proximal_vs_26w_nonSPF_5days_fx",
+                        "26w_nonSPF_5days_distal_vs_26w_nonSPF_5days_proximal",
+                        "26w_SPF_5days_distal_vs_26w_SPF_5days_fx",
+                        "26w_SPF_5days_proximal_vs_26w_SPF_5days_fx",
+                        "26w_SPF_5days_distal_vs_26w_SPF_5days_proximal")
+
+cs <- data.frame(contrast=unique(res_df$contrast),
+                 new=selected_contrasts)
+
+res_df <- res_df %>%
+  left_join(cs) %>%
+  dplyr::rename(old_contrast=contrast,
+         contrast=new)
+
+gene_info <- read.delim(file.path(git_path,params$gene_info), header=F)
+colnames(gene_info) <- c("gene_id","gene_name","gene_type")
+
+res_df <- res_df %>%
+  left_join(gene_info)
+```
+
+
+```{r run tmod mm, fig.width=5,fig.height=7}
+
+tmod_mm <- readRDS(file.path(git_path,"Figures/data/tmod_mm.rds"))
+res <- res_df %>%
+  filter(gene_type=="protein_coding")
+res <- split(res, f = res$contrast)
+
+genes <- lapply(res, function(x) x %>%
+                  filter(!is.na(padj)) %>%
+                  arrange(pvalue))
+genes_reduced <- genes["26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"]
+
+lgenes <- lapply(genes_reduced, function(x) x$gene_name)
+
+res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
+
+res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-3 & AUC > .65))
+
+
+```
+
+Figure 5A
+```{r fig5a, fig.width = 8/2, fig.height =3}
+
+gene_set <- "DC.M3.4" # interferon
+# gene_set <- "LI.M68" # Rig-1
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+#################### Volcano plot #######################
+DF <- res_df[grepl("26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx", res_df$contrast), ]
+# add a column of NAs
+DF$direction <- "N"
+# if log2Foldchange > 0.5 and pvalue < 0.05, set as "UP" 
+DF$direction[(DF$log2FoldChange > 0.5 & DF$padj < 0.1)] <- "up"
+DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
+
+interferon_up <- DF %>% 
+  filter(direction=="up") %>%
+  filter(gene_name %in% genes_in_gene_set) %>%
+  pull(gene_name)
+
+
+
+(fig5a <- DF %>% 
+    dplyr::filter(gene_type=="protein_coding") %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),col=direction)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=DF %>%
+                       dplyr::filter(gene_type=="protein_coding") %>% 
+                       #dplyr::filter(gene_name %in% c("Il7","Il7r","Ifng","Ifngr1","Ifngr2","Ifna","Ifna1","Ifnb1","Ifnar1", "Ifnar2")) ,
+                       dplyr::filter(gene_name %in% genes_in_gene_set),
+                     #dplyr::filter(gene_name %in% interferon_up),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=2.5,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c("blue","grey","red"))+ theme_classic() + 
+    theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+                     axis.title = element_text(size = 8),  
+                     axis.text = element_text(size = 8),
+                     axis.ticks.x=element_blank(),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_blank()) + 
+    labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
+  ggtitle("Immune-aged: hematoma"))
+
+```
+
+```{r add module scores, fig.width=10,fig.height=6}
+
+
+gene_set <-"LI.M47.0" # B cells
+
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+  
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+
+sobj <- AddModuleScore(sobj,
+                  features = list(genes_in_gene_set),
+                  name="B_cell_gene_score")
+
+gene_set <- "DC.M3.4" # interferon
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+sobj <- AddModuleScore(sobj,
+                  features = list(genes_in_gene_set),
+                  name="Interferon_gene_score")
+
+gene_set <-"LI.M7.0" # T cells
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+  
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+sobj <- AddModuleScore(sobj,
+                  features = list(genes_in_gene_set),
+                  name="T_cell_gene_score")
+```
+
+```{r plot fig5b, fig.width=8,fig.height=3}
+
+library(ggpubr)
+my_comparisons <- list(c("2days", "5days"))
+celltypes <- c("Monocytes", "Neutrophils", "B Cells")
+
+sfig5a <- sobj[[]] %>%
+  select(strain, compartments, CellTypes, Interferon_gene_score1 , timepoint ) %>%
+  filter(strain=="Immune-aged" & compartments=="Hematoma" ) %>%
+  filter(CellTypes %in% celltypes) %>%
+  filter(!is.na(Interferon_gene_score1 )) %>%
+  ggplot(aes(timepoint, Interferon_gene_score1 , colour=timepoint))+
+  geom_boxplot(outlier.shape = NA)+
+  # geom_violin()+
+  geom_point(shape=1,position = position_jitterdodge(jitter.width = .3),size=1)+
+  coord_cartesian(ylim=c(-0.25,1.2))+
+  facet_wrap(~CellTypes, scales="free_x",ncol=4)+
+  stat_compare_means(comparisons = my_comparisons, label="p.signif",
+                     method = "wilcox.test",label.y = .8, hide.ns = FALSE,size=2.5) +
+  scale_colour_manual(values=c("dodgerblue3","orange3"))+
+  ylab("Gene module score Interferon")+
+  theme(axis.text.x=element_blank(),
+        text=element_text(size=8))+
+  labs(x=c())
+sfig5a
+```
+
+```{r plot fig5d, fig.width=8/2,fig.height=3}
+
+gene_set <- "DC.M3.4" # interferon
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+# genes_of_interest <- c("Il7r","Il7")
+# genes_of_interest <- c("Il7","Il7r","Ifng","Ifngr1","Ifngr2","Ifnab","Ifnb1","Ifnar1", "Ifnar2")
+
+genes_of_interest_bcell <- c("Il7r","Ifngr1","Ifngr2","Ifnar1", "Ifnar2")
+genes_signals <- c("Il7","Ifng","Ifnab","Ifnb1")
+genes_of_interest_monocyte <- c("Ifih1" , "Ifi35", "Dhx58", "Parp12", "Irf7", "Irf8" )
+# genes_of_interest_monocyte <- genes_in_gene_set
+ 
+
+Idents(sobj) <- "CellTypes"
+
+levs <- c("Young_2days",
+        "Young_5days",
+        "Aged_2days",
+        "Aged_5days",
+        "Immune-aged_2days",
+        "Immune-aged_5days")
+
+md <- sobj[[]] %>%
+  tibble::rownames_to_column("cells") %>%
+  select(cells, strain, timepoint, CellTypes) %>%
+  mutate(groups=ifelse(CellTypes=="B Cells",paste0(strain,"_", timepoint),
+                       ifelse(CellTypes=="Monocytes",paste0(strain,"_", timepoint), 
+                              ifelse(CellTypes=="T Cells",paste0(strain,"_", timepoint),"other")))) %>%
+  mutate(groups=factor(groups, levels=rev(levs))) %>%
+  select(cells, groups) %>%
+  tibble::column_to_rownames("cells")
+
+sobj <- AddMetaData(sobj, metadata = md)
+Idents(sobj) <- "groups"
+DefaultAssay(sobj) 
+
+fig5d <- sobj %>%
+  subset(groups!="other" & CellTypes=="B Cells" & compartments=="Hematoma") %>%
+  DotPlot(features=genes_of_interest_bcell)+
+    theme(axis.text.x=element_text(angle=90,hjust=0.5))+
+  ggtitle("B Cells")+
+  scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) +
+  theme(text = element_text(family = "Arial",size=8),
+        title = element_text(family = "Arial",size=6),
+        axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+        axis.text.y=element_text(size=8),
+        strip.text.x = element_text(size = 8),#for facet wrap
+        strip.placement = "outside",
+        axis.title = element_text(size=8,face="bold"),
+        axis.title.y.right = element_text(size = 8),
+        legend.text=element_text(size=8),
+        legend.position = "top",
+        legend.title=element_text(hjust = 0,size=8),
+        legend.direction = "vertical",
+        legend.key.height = unit(.1,"in"),
+        axis.line = element_line(linewidth=1)) +
+        labs(x = c(), y = c())
+
+
+fig5d
+
+
+```
+
+```{r fig5d, fig.width=8/2,fig.height=3}
+
+fig5c<-sobj %>% 
+  subset(groups!="other" & CellTypes=="Monocytes" & compartments=="Hematoma") %>%
+  DotPlot(features=genes_of_interest_monocyte)+
+    theme(axis.text.x=element_text(angle=90,hjust=0.5))+
+  ggtitle("Monocytes")+ 
+  scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) + 
+  theme(text = element_text(family = "Arial",size=8),
+        title = element_text(family = "Arial",size=6),
+        axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+        axis.text.y=element_text(size=8),
+        strip.text.x = element_text(size = 8),#for facet wrap
+        strip.placement = "outside",
+        axis.title = element_text(size=8,face="bold"),
+        axis.title.y.right = element_text(size = 8),
+        legend.text=element_text(size=8),
+        legend.position = "top",
+        legend.title=element_text(hjust = 0,size=8),
+        legend.direction = "vertical",
+        legend.key.height = unit(.1,"in"),
+        axis.line = element_line(linewidth=1)) +
+        labs(x = c(), y = c())
+fig5c
+
+# genes_signals <- c("Il7","Ifng","Ifnab","Ifnb1")
+
+# fig5e<-sobj %>% 
+#   subset(groups!="other" & CellTypes=="Monocytes" & compartments=="Hematoma") %>%
+#   DotPlot(features=genes_signals)+
+#     theme(axis.text.x=element_text(angle=90,hjust=0.5))+
+#   ggtitle("Monocytes")+ 
+#   scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) + 
+#   theme(text = element_text(family = "Arial",size=8),
+#         title = element_text(family = "Arial",size=6),
+#         axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+#         axis.text.y=element_text(size=8),
+#         strip.text.x = element_text(size = 8),#for facet wrap
+#         strip.placement = "outside",
+#         axis.title = element_text(size=8,face="bold"),
+#         axis.title.y.right = element_text(size = 8),
+#         legend.text=element_text(size=8),
+#         legend.position = "top",
+#         legend.title=element_text(hjust = 0,size=8),
+#         legend.direction = "vertical",
+#         legend.key.height = unit(.1,"in"),
+#         axis.line = element_line(linewidth=1)) +
+#         labs(x = c(), y = c())
+# fig5e
+
+```
+
+```{r fig5, fig.height=9,fig.width=8}
+
+# (wrap_elements(fig5a) +wrap_elements(fig5c))/
+#  ( wrap_elements(fig5d)+ wrap_elements(fig5e) )+
+#   plot_annotation(tag_levels = 'A') &
+#   theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+(wrap_elements(fig5a) +wrap_elements(fig5c))/
+ ( wrap_elements(fig5d)+ plot_spacer() )+
+  plot_annotation(tag_levels = 'A') &
+  theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+if (file.exists(file.path(figure_out_path,"fig5.pdf"))){
+  try(ggsave(file.path(figure_out_path,"fig5.pdf"), device = cairo_pdf,width=8,height=6), silent=T)
+  warning("file not written, please close file in the other application and rerun.")
+} else {
+  ggsave(file.path(figure_out_path,"fig5.pdf"), device = cairo_pdf,width=8,height=6)
+}
+```
+
+```{r volcano, fig.width=8/2,fig.height=3}
+
+gene_set <- "DC.M3.4" # interferon
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+#################### Volcano plot #######################
+DF <- res_df[grepl("26w_SPF_5days_fx_vs_26w_SPF_2days_fx", res_df$contrast), ]
+# add a column of NAs
+DF$direction <- "N"
+# if log2Foldchange > 0.5 and pvalue < 0.05, set as "UP" 
+DF$direction[(DF$log2FoldChange > 0.5 & DF$padj < 0.1)] <- "up"
+DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
+
+interferon_up <- DF %>% 
+  filter(direction=="up") %>%
+  filter(gene_name %in% genes_in_gene_set) %>%
+  pull(gene_name)
+
+
+
+(sf5a <- DF %>% 
+    dplyr::filter(gene_type=="protein_coding") %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),col=direction)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=DF %>%
+                       dplyr::filter(gene_type=="protein_coding") %>% 
+                       #dplyr::filter(gene_name %in% c("Il7","Il7r","Ifng","Ifngr1","Ifngr2","Ifna","Ifna1","Ifnb1","Ifnar1", "Ifnar2")) ,
+                       dplyr::filter(gene_name %in% genes_in_gene_set),
+                     #dplyr::filter(gene_name %in% interferon_up),
+                       #dplyr::filter(direction=="up"|direction=="down"),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=2.5,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c("blue","grey","red"))+ theme_classic() + 
+    theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+                     axis.title = element_text(size = 8),  
+                     axis.text = element_text(size = 8),
+                     axis.ticks.x=element_blank(),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_blank()) + 
+    labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
+  ggtitle("Aged: Hematoma"))
+
+```
+
+```{r volcano, fig.width=8/2,fig.height=3}
+
+gene_set <- "DC.M3.4" # interferon
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+#################### Volcano plot #######################
+DF <- res_df[grepl("12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx", res_df$contrast), ]
+# add a column of NAs
+DF$direction <- "N"
+# if log2Foldchange > 0.5 and pvalue < 0.05, set as "UP" 
+DF$direction[(DF$log2FoldChange > 0.5 & DF$padj < 0.1)] <- "up"
+DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
+
+interferon_up <- DF %>% 
+  filter(direction=="up") %>%
+  filter(gene_name %in% genes_in_gene_set) %>%
+  pull(gene_name)
+
+
+
+(sf5b <- DF %>% 
+    dplyr::filter(gene_type=="protein_coding") %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),col=direction)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=DF %>%
+                       dplyr::filter(gene_type=="protein_coding") %>% 
+                       #dplyr::filter(gene_name %in% c("Il7","Il7r","Ifng","Ifngr1","Ifngr2","Ifna","Ifna1","Ifnb1","Ifnar1", "Ifnar2")) ,
+                       dplyr::filter(gene_name %in% genes_in_gene_set),
+                     #dplyr::filter(gene_name %in% interferon_up),
+                       #dplyr::filter(direction=="up"|direction=="down"),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=2.5,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c("blue","grey","red"))+ theme_classic() + 
+    theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+                     axis.title = element_text(size = 8),  
+                     axis.text = element_text(size = 8),
+                     axis.ticks.x=element_blank(),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_blank()) + 
+    labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
+  ggtitle("Young: Hematoma"))
+
+```
+
+```{r volcano, fig.width=8/2,fig.height=3}
+
+gene_set <- "DC.M3.4" # interferon
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+#################### Volcano plot #######################
+DF <- res_df[grepl("26w_SPF_2days_fx_vs_26w_nonSPF_2days_fx", res_df$contrast), ]
+# add a column of NAs
+DF$direction <- "N"
+# if log2Foldchange > 0.5 and pvalue < 0.05, set as "UP" 
+DF$direction[(DF$log2FoldChange > 0.5 & DF$padj < 0.1)] <- "up"
+DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
+
+interferon_up <- DF %>% 
+  filter(direction=="up") %>%
+  filter(gene_name %in% genes_in_gene_set) %>%
+  pull(gene_name)
+
+
+
+(sf5c <- DF %>% 
+    dplyr::filter(gene_type=="protein_coding") %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),col=direction)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=DF %>%
+                       dplyr::filter(gene_type=="protein_coding") %>% 
+                       #dplyr::filter(gene_name %in% c("Il7","Il7r","Ifng","Ifngr1","Ifngr2","Ifna","Ifna1","Ifnb1","Ifnar1", "Ifnar2")) ,
+                       #dplyr::filter(gene_name %in% genes_in_gene_set),
+                     #dplyr::filter(gene_name %in% interferon_up),
+                       dplyr::filter(direction=="up"|direction=="down"),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=2.5,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c("blue","grey","red"))+ theme_classic() + 
+    theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+                     axis.title = element_text(size = 8),  
+                     axis.text = element_text(size = 8),
+                     axis.ticks.x=element_blank(),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_blank()) + 
+    labs(title = "",x = "log2FoldChange (Aged vs. Immune-aged)") +
+  ggtitle("Hematoma: 2 days"))
+
+```
+
+```{r volcano, fig.width=8/2,fig.height=3}
+
+gene_set <- "DC.M3.4" # interferon
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+#################### Volcano plot #######################
+DF <- res_df[grepl("26w_nonSPF_2days_fx_vs_12w_nonSPF_2days_fx", res_df$contrast), ]
+# add a column of NAs
+DF$direction <- "N"
+# if log2Foldchange > 0.5 and pvalue < 0.05, set as "UP" 
+DF$direction[(DF$log2FoldChange > 0.5 & DF$padj < 0.1)] <- "up"
+DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
+
+interferon_up <- DF %>% 
+  filter(direction=="up") %>%
+  filter(gene_name %in% genes_in_gene_set) %>%
+  pull(gene_name)
+
+
+
+(sf5d <- DF %>% 
+    dplyr::filter(gene_type=="protein_coding") %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),col=direction)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=DF %>%
+                       dplyr::filter(gene_type=="protein_coding") %>% 
+                       #dplyr::filter(gene_name %in% c("Il7","Il7r","Ifng","Ifngr1","Ifngr2","Ifna","Ifna1","Ifnb1","Ifnar1", "Ifnar2")) ,
+                       #dplyr::filter(gene_name %in% genes_in_gene_set),
+                     #dplyr::filter(gene_name %in% interferon_up),
+                       dplyr::filter(direction=="up"|direction=="down"),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=2.5,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c("blue","grey","red"))+ theme_classic() + 
+    theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+                     axis.title = element_text(size = 8),  
+                     axis.text = element_text(size = 8),
+                     axis.ticks.x=element_blank(),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_blank()) + 
+    labs(title = "",x = "log2FoldChange (Immune-aged vs Young)") +
+  ggtitle("Hematoma: 2 days"))
+
+```
+
+```{r fig sf5b,fig.width=8/2,fig.height=3}
+
+genes_signals <- c("Il7","Ifng","Ifnab","Ifnb1")
+Idents(sobj) <- "CellTypes"
+sfig5b <- DotPlot(sobj, features=genes_signals)+
+  scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) +
+  theme(text = element_text(family = "Arial",size=8),
+        title = element_text(family = "Arial",size=6),
+        axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+        axis.text.y=element_text(size=8),
+        strip.text.x = element_text(size = 8),#for facet wrap
+        strip.placement = "outside",
+        axis.title = element_text(size=8,face="bold"),
+        axis.title.y.right = element_text(size = 8),
+        legend.text=element_text(size=8),
+        legend.position = "top",
+        legend.title=element_text(hjust = 0,size=8),
+        legend.direction = "vertical",
+        legend.key.height = unit(.1,"in"),
+        axis.line = element_line(linewidth=1)) +
+        labs(x = c(), y = c())
+sfig5b
+```
+
+```{r fig sf5e,fig.width=8/2,fig.height=3}
+
+# fox <- c("Foxp1")
+# Idents(sobj) <- "CellTypes"
+# sfig5e <- DotPlot(sobj, features=fox)+
+#   scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) + 
+#   theme(text = element_text(family = "Arial",size=8),
+#         title = element_text(family = "Arial",size=6),
+#         axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+#         axis.text.y=element_text(size=8),
+#         strip.text.x = element_text(size = 8),#for facet wrap
+#         strip.placement = "outside",
+#         axis.title = element_text(size=8,face="bold"),
+#         axis.title.y.right = element_text(size = 8),
+#         legend.text=element_text(size=8),
+#         legend.position = "top",
+#         legend.title=element_text(hjust = 0,size=8),
+#         legend.direction = "vertical",
+#         legend.key.height = unit(.1,"in"),
+#         axis.line = element_line(linewidth=1)) +
+#         labs(x = c(), y = c())
+# sfig5e
+# 
+# Idents(sobj) <- "groups"
+# sfig5e <- sobj %>% 
+#   subset(groups!="other" & CellTypes=="T Cells" & compartments=="Hematoma") %>%
+#   DotPlot(features=fox)+
+#     theme(axis.text.x=element_text(angle=90,hjust=0.5))+
+#   ggtitle("B Cells")+ 
+#   scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) + 
+#   theme(text = element_text(family = "Arial",size=8),
+#         title = element_text(family = "Arial",size=6),
+#         axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+#         axis.text.y=element_text(size=8),
+#         strip.text.x = element_text(size = 8),#for facet wrap
+#         strip.placement = "outside",
+#         axis.title = element_text(size=8,face="bold"),
+#         axis.title.y.right = element_text(size = 8),
+#         legend.text=element_text(size=8),
+#         legend.position = "top",
+#         legend.title=element_text(hjust = 0,size=8),
+#         legend.direction = "vertical",
+#         legend.key.height = unit(.1,"in"),
+#         axis.line = element_line(linewidth=1)) +
+#         labs(x = c(), y = c())
+# 
+# 
+# sfig5e
+```
+
+```{r sfig5, fig.height=9,fig.width=5}
+# wrap_elements(sfig5a)/
+# (wrap_elements(sf5a) + wrap_elements(sf5b))/
+#   (wrap_elements(sfig5b)+ plot_spacer())+
+#   plot_annotation(tag_levels = 'A') &
+#   theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+wrap_elements(sfig5a)/
+(wrap_elements(sf5a) + wrap_elements(sf5b))+
+  plot_annotation(tag_levels = 'A') &
+  theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+if (file.exists(file.path(figure_out_path,"SFig5.pdf"))){
+  try(ggsave(file.path(figure_out_path,"SFig5.pdf"), device = cairo_pdf,width=8,height=5), silent=T)
+  warning("file not written, please close file in the other application and rerun.")
+} else {
+  ggsave(file.path(figure_out_path,"SFig5.pdf"), device = cairo_pdf,width=8,height=5)
+}
+```
+
+
+
+
+```{r session}
+
+sessionInfo()
+
+```
+
+

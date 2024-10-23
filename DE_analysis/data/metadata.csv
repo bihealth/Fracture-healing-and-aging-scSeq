@@ -1,0 +1,529 @@
+cluster_id,orig.ident,group,mouse
+?,11A2_1O_dist,12wdist_2days,11A2_1O
+?,11A2_1O_prox,12wprox_2days,11A2_1O
+?,11A2_2O_dist,12wdist_2days,11A2_2O
+?,11A2_8O_dist,12wdist_2days,11A2_8O
+?,11A2_8O_prox,12wprox_2days,11A2_8O
+?,11A5_10_prox,12wprox_5days,11A5_10
+?,11A5_11_dist,12wdist_5days,11A5_11
+?,11A5_11_fx,12wfx_5days,11A5_11
+?,11A5_11_prox,12wprox_5days,11A5_11
+?,11A5_12_dist,12wdist_5days,11A5_12
+?,11A5_12_fx,12wfx_5days,11A5_12
+?,11A5_12_prox,12wprox_5days,11A5_12
+?,11B2_15_fx,26wEfx_2days,11B2_15
+?,11B2_16_fx,26wEfx_2days,11B2_16
+?,11B5_23_fx,26wEfx_5days,11B5_23
+?,11B5_24_dist,26wEdist_5days,11B5_24
+?,11C2_25_fx,26wSPFfx_2days,11C2_25
+?,11C2_25_prox,26wSPFprox_2days,11C2_25
+?,11C5_31_dist,26wSPFdist_5days,11C5_31
+?,11C5_31_fx,26wSPFfx_5days,11C5_31
+?,11C5_31_prox,26wSPFprox_5days,11C5_31
+?,11C5_34_prox,26wSPFprox_5days,11C5_34
+?,11C5_36_dist,26wSPFdist_5days,11C5_36
+?,11C5_36_prox,26wSPFprox_5days,11C5_36
+B Cells,11A2_1O_dist,12wdist_2days,11A2_1O
+B Cells,11A2_1O_fx,12wfx_2days,11A2_1O
+B Cells,11A2_1O_prox,12wprox_2days,11A2_1O
+B Cells,11A2_2O_dist,12wdist_2days,11A2_2O
+B Cells,11A2_2O_fx,12wfx_2days,11A2_2O
+B Cells,11A2_2O_prox,12wprox_2days,11A2_2O
+B Cells,11A2_8O_dist,12wdist_2days,11A2_8O
+B Cells,11A2_8O_fx,12wfx_2days,11A2_8O
+B Cells,11A2_8O_prox,12wprox_2days,11A2_8O
+B Cells,11A5_10_dist,12wdist_5days,11A5_10
+B Cells,11A5_10_fx,12wfx_5days,11A5_10
+B Cells,11A5_10_prox,12wprox_5days,11A5_10
+B Cells,11A5_11_dist,12wdist_5days,11A5_11
+B Cells,11A5_11_fx,12wfx_5days,11A5_11
+B Cells,11A5_11_prox,12wprox_5days,11A5_11
+B Cells,11A5_12_dist,12wdist_5days,11A5_12
+B Cells,11A5_12_fx,12wfx_5days,11A5_12
+B Cells,11A5_12_prox,12wprox_5days,11A5_12
+B Cells,11B2_14_dist,26wEdist_2days,11B2_14
+B Cells,11B2_14_fx,26wEfx_2days,11B2_14
+B Cells,11B2_14_prox,26wEprox_2days,11B2_14
+B Cells,11B2_15_dist,26wEdist_2days,11B2_15
+B Cells,11B2_15_fx,26wEfx_2days,11B2_15
+B Cells,11B2_15_prox,26wEprox_2days,11B2_15
+B Cells,11B2_16_dist,26wEdist_2days,11B2_16
+B Cells,11B2_16_fx,26wEfx_2days,11B2_16
+B Cells,11B2_16_prox,26wEprox_2days,11B2_16
+B Cells,11B5_22_dist,26wEdist_5days,11B5_22
+B Cells,11B5_22_fx,26wEfx_5days,11B5_22
+B Cells,11B5_22_prox,26wEprox_5days,11B5_22
+B Cells,11B5_23_dist,26wEdist_5days,11B5_23
+B Cells,11B5_23_fx,26wEfx_5days,11B5_23
+B Cells,11B5_23_prox,26wEprox_5days,11B5_23
+B Cells,11B5_24_dist,26wEdist_5days,11B5_24
+B Cells,11B5_24_prox,26wEprox_5days,11B5_24
+B Cells,11C2_25_dist,26wSPFdist_2days,11C2_25
+B Cells,11C2_25_fx,26wSPFfx_2days,11C2_25
+B Cells,11C2_25_prox,26wSPFprox_2days,11C2_25
+B Cells,11C2_26_dist,26wSPFdist_2days,11C2_26
+B Cells,11C2_26_fx,26wSPFfx_2days,11C2_26
+B Cells,11C2_26_prox,26wSPFprox_2days,11C2_26
+B Cells,11C2_30_dist,26wSPFdist_2days,11C2_30
+B Cells,11C2_30_fx,26wSPFfx_2days,11C2_30
+B Cells,11C2_30_prox,26wSPFprox_2days,11C2_30
+B Cells,11C5_31_dist,26wSPFdist_5days,11C5_31
+B Cells,11C5_31_fx,26wSPFfx_5days,11C5_31
+B Cells,11C5_31_prox,26wSPFprox_5days,11C5_31
+B Cells,11C5_34_dist,26wSPFdist_5days,11C5_34
+B Cells,11C5_34_prox,26wSPFprox_5days,11C5_34
+B Cells,11C5_36_dist,26wSPFdist_5days,11C5_36
+B Cells,11C5_36_fx,26wSPFfx_5days,11C5_36
+B Cells,11C5_36_prox,26wSPFprox_5days,11C5_36
+Dendritic Cells,11A2_1O_dist,12wdist_2days,11A2_1O
+Dendritic Cells,11A2_1O_fx,12wfx_2days,11A2_1O
+Dendritic Cells,11A2_1O_prox,12wprox_2days,11A2_1O
+Dendritic Cells,11A2_2O_dist,12wdist_2days,11A2_2O
+Dendritic Cells,11A2_2O_fx,12wfx_2days,11A2_2O
+Dendritic Cells,11A2_2O_prox,12wprox_2days,11A2_2O
+Dendritic Cells,11A2_8O_dist,12wdist_2days,11A2_8O
+Dendritic Cells,11A2_8O_fx,12wfx_2days,11A2_8O
+Dendritic Cells,11A2_8O_prox,12wprox_2days,11A2_8O
+Dendritic Cells,11A5_10_dist,12wdist_5days,11A5_10
+Dendritic Cells,11A5_10_fx,12wfx_5days,11A5_10
+Dendritic Cells,11A5_10_prox,12wprox_5days,11A5_10
+Dendritic Cells,11A5_11_fx,12wfx_5days,11A5_11
+Dendritic Cells,11A5_11_prox,12wprox_5days,11A5_11
+Dendritic Cells,11A5_12_dist,12wdist_5days,11A5_12
+Dendritic Cells,11A5_12_fx,12wfx_5days,11A5_12
+Dendritic Cells,11A5_12_prox,12wprox_5days,11A5_12
+Dendritic Cells,11B2_14_dist,26wEdist_2days,11B2_14
+Dendritic Cells,11B2_14_fx,26wEfx_2days,11B2_14
+Dendritic Cells,11B2_14_prox,26wEprox_2days,11B2_14
+Dendritic Cells,11B2_15_dist,26wEdist_2days,11B2_15
+Dendritic Cells,11B2_15_fx,26wEfx_2days,11B2_15
+Dendritic Cells,11B2_15_prox,26wEprox_2days,11B2_15
+Dendritic Cells,11B2_16_dist,26wEdist_2days,11B2_16
+Dendritic Cells,11B2_16_fx,26wEfx_2days,11B2_16
+Dendritic Cells,11B2_16_prox,26wEprox_2days,11B2_16
+Dendritic Cells,11B5_22_dist,26wEdist_5days,11B5_22
+Dendritic Cells,11B5_22_fx,26wEfx_5days,11B5_22
+Dendritic Cells,11B5_22_prox,26wEprox_5days,11B5_22
+Dendritic Cells,11B5_23_dist,26wEdist_5days,11B5_23
+Dendritic Cells,11B5_23_fx,26wEfx_5days,11B5_23
+Dendritic Cells,11B5_23_prox,26wEprox_5days,11B5_23
+Dendritic Cells,11B5_24_dist,26wEdist_5days,11B5_24
+Dendritic Cells,11B5_24_prox,26wEprox_5days,11B5_24
+Dendritic Cells,11C2_25_dist,26wSPFdist_2days,11C2_25
+Dendritic Cells,11C2_25_fx,26wSPFfx_2days,11C2_25
+Dendritic Cells,11C2_25_prox,26wSPFprox_2days,11C2_25
+Dendritic Cells,11C2_26_dist,26wSPFdist_2days,11C2_26
+Dendritic Cells,11C2_26_fx,26wSPFfx_2days,11C2_26
+Dendritic Cells,11C2_26_prox,26wSPFprox_2days,11C2_26
+Dendritic Cells,11C2_30_dist,26wSPFdist_2days,11C2_30
+Dendritic Cells,11C2_30_fx,26wSPFfx_2days,11C2_30
+Dendritic Cells,11C2_30_prox,26wSPFprox_2days,11C2_30
+Dendritic Cells,11C5_31_dist,26wSPFdist_5days,11C5_31
+Dendritic Cells,11C5_31_fx,26wSPFfx_5days,11C5_31
+Dendritic Cells,11C5_31_prox,26wSPFprox_5days,11C5_31
+Dendritic Cells,11C5_34_dist,26wSPFdist_5days,11C5_34
+Dendritic Cells,11C5_34_prox,26wSPFprox_5days,11C5_34
+Dendritic Cells,11C5_36_dist,26wSPFdist_5days,11C5_36
+Dendritic Cells,11C5_36_fx,26wSPFfx_5days,11C5_36
+Dendritic Cells,11C5_36_prox,26wSPFprox_5days,11C5_36
+Eosinophils,11A2_1O_dist,12wdist_2days,11A2_1O
+Eosinophils,11A2_1O_fx,12wfx_2days,11A2_1O
+Eosinophils,11A2_1O_prox,12wprox_2days,11A2_1O
+Eosinophils,11A2_2O_dist,12wdist_2days,11A2_2O
+Eosinophils,11A2_2O_fx,12wfx_2days,11A2_2O
+Eosinophils,11A2_2O_prox,12wprox_2days,11A2_2O
+Eosinophils,11A2_8O_dist,12wdist_2days,11A2_8O
+Eosinophils,11A2_8O_fx,12wfx_2days,11A2_8O
+Eosinophils,11A2_8O_prox,12wprox_2days,11A2_8O
+Eosinophils,11A5_10_dist,12wdist_5days,11A5_10
+Eosinophils,11A5_10_fx,12wfx_5days,11A5_10
+Eosinophils,11A5_10_prox,12wprox_5days,11A5_10
+Eosinophils,11A5_11_dist,12wdist_5days,11A5_11
+Eosinophils,11A5_11_fx,12wfx_5days,11A5_11
+Eosinophils,11A5_11_prox,12wprox_5days,11A5_11
+Eosinophils,11A5_12_dist,12wdist_5days,11A5_12
+Eosinophils,11A5_12_fx,12wfx_5days,11A5_12
+Eosinophils,11A5_12_prox,12wprox_5days,11A5_12
+Eosinophils,11B2_14_fx,26wEfx_2days,11B2_14
+Eosinophils,11B2_14_prox,26wEprox_2days,11B2_14
+Eosinophils,11B2_15_dist,26wEdist_2days,11B2_15
+Eosinophils,11B2_15_fx,26wEfx_2days,11B2_15
+Eosinophils,11B2_15_prox,26wEprox_2days,11B2_15
+Eosinophils,11B2_16_dist,26wEdist_2days,11B2_16
+Eosinophils,11B2_16_fx,26wEfx_2days,11B2_16
+Eosinophils,11B2_16_prox,26wEprox_2days,11B2_16
+Eosinophils,11B5_22_dist,26wEdist_5days,11B5_22
+Eosinophils,11B5_22_fx,26wEfx_5days,11B5_22
+Eosinophils,11B5_22_prox,26wEprox_5days,11B5_22
+Eosinophils,11B5_23_dist,26wEdist_5days,11B5_23
+Eosinophils,11B5_23_fx,26wEfx_5days,11B5_23
+Eosinophils,11B5_24_dist,26wEdist_5days,11B5_24
+Eosinophils,11B5_24_fx,26wEfx_5days,11B5_24
+Eosinophils,11B5_24_prox,26wEprox_5days,11B5_24
+Eosinophils,11C2_25_dist,26wSPFdist_2days,11C2_25
+Eosinophils,11C2_25_fx,26wSPFfx_2days,11C2_25
+Eosinophils,11C2_25_prox,26wSPFprox_2days,11C2_25
+Eosinophils,11C2_26_dist,26wSPFdist_2days,11C2_26
+Eosinophils,11C2_26_fx,26wSPFfx_2days,11C2_26
+Eosinophils,11C2_26_prox,26wSPFprox_2days,11C2_26
+Eosinophils,11C2_30_dist,26wSPFdist_2days,11C2_30
+Eosinophils,11C2_30_fx,26wSPFfx_2days,11C2_30
+Eosinophils,11C2_30_prox,26wSPFprox_2days,11C2_30
+Eosinophils,11C5_31_dist,26wSPFdist_5days,11C5_31
+Eosinophils,11C5_31_prox,26wSPFprox_5days,11C5_31
+Eosinophils,11C5_34_dist,26wSPFdist_5days,11C5_34
+Eosinophils,11C5_34_prox,26wSPFprox_5days,11C5_34
+Eosinophils,11C5_36_dist,26wSPFdist_5days,11C5_36
+Eosinophils,11C5_36_fx,26wSPFfx_5days,11C5_36
+Eosinophils,11C5_36_prox,26wSPFprox_5days,11C5_36
+Erythroblasts,11A2_1O_prox,12wprox_2days,11A2_1O
+Erythroblasts,11A2_2O_dist,12wdist_2days,11A2_2O
+Erythroblasts,11A2_2O_prox,12wprox_2days,11A2_2O
+Erythroblasts,11A2_8O_dist,12wdist_2days,11A2_8O
+Erythroblasts,11A2_8O_fx,12wfx_2days,11A2_8O
+Erythroblasts,11A2_8O_prox,12wprox_2days,11A2_8O
+Erythroblasts,11A5_10_dist,12wdist_5days,11A5_10
+Erythroblasts,11A5_10_prox,12wprox_5days,11A5_10
+Erythroblasts,11A5_11_fx,12wfx_5days,11A5_11
+Erythroblasts,11A5_11_prox,12wprox_5days,11A5_11
+Erythroblasts,11A5_12_dist,12wdist_5days,11A5_12
+Erythroblasts,11A5_12_prox,12wprox_5days,11A5_12
+Erythroblasts,11B2_14_prox,26wEprox_2days,11B2_14
+Erythroblasts,11B2_15_dist,26wEdist_2days,11B2_15
+Erythroblasts,11B2_15_fx,26wEfx_2days,11B2_15
+Erythroblasts,11B2_15_prox,26wEprox_2days,11B2_15
+Erythroblasts,11B2_16_prox,26wEprox_2days,11B2_16
+Erythroblasts,11B5_23_dist,26wEdist_5days,11B5_23
+Erythroblasts,11B5_24_dist,26wEdist_5days,11B5_24
+Erythroblasts,11B5_24_prox,26wEprox_5days,11B5_24
+Erythroblasts,11C2_25_dist,26wSPFdist_2days,11C2_25
+Erythroblasts,11C2_25_fx,26wSPFfx_2days,11C2_25
+Erythroblasts,11C2_25_prox,26wSPFprox_2days,11C2_25
+Erythroblasts,11C2_26_prox,26wSPFprox_2days,11C2_26
+Erythroblasts,11C2_30_dist,26wSPFdist_2days,11C2_30
+Erythroblasts,11C2_30_fx,26wSPFfx_2days,11C2_30
+Erythroblasts,11C2_30_prox,26wSPFprox_2days,11C2_30
+Erythroblasts,11C5_31_dist,26wSPFdist_5days,11C5_31
+Erythroblasts,11C5_31_fx,26wSPFfx_5days,11C5_31
+Erythroblasts,11C5_31_prox,26wSPFprox_5days,11C5_31
+Erythroblasts,11C5_34_prox,26wSPFprox_5days,11C5_34
+Erythroblasts,11C5_36_dist,26wSPFdist_5days,11C5_36
+Erythroblasts,11C5_36_prox,26wSPFprox_5days,11C5_36
+Mast Cells / Basophils,11A2_1O_dist,12wdist_2days,11A2_1O
+Mast Cells / Basophils,11A2_2O_dist,12wdist_2days,11A2_2O
+Mast Cells / Basophils,11A2_2O_fx,12wfx_2days,11A2_2O
+Mast Cells / Basophils,11A2_2O_prox,12wprox_2days,11A2_2O
+Mast Cells / Basophils,11A2_8O_dist,12wdist_2days,11A2_8O
+Mast Cells / Basophils,11A2_8O_fx,12wfx_2days,11A2_8O
+Mast Cells / Basophils,11A2_8O_prox,12wprox_2days,11A2_8O
+Mast Cells / Basophils,11A5_10_fx,12wfx_5days,11A5_10
+Mast Cells / Basophils,11A5_10_prox,12wprox_5days,11A5_10
+Mast Cells / Basophils,11A5_11_fx,12wfx_5days,11A5_11
+Mast Cells / Basophils,11A5_12_dist,12wdist_5days,11A5_12
+Mast Cells / Basophils,11A5_12_fx,12wfx_5days,11A5_12
+Mast Cells / Basophils,11A5_12_prox,12wprox_5days,11A5_12
+Mast Cells / Basophils,11B2_14_dist,26wEdist_2days,11B2_14
+Mast Cells / Basophils,11B2_14_fx,26wEfx_2days,11B2_14
+Mast Cells / Basophils,11B2_15_dist,26wEdist_2days,11B2_15
+Mast Cells / Basophils,11B2_15_fx,26wEfx_2days,11B2_15
+Mast Cells / Basophils,11B2_15_prox,26wEprox_2days,11B2_15
+Mast Cells / Basophils,11B2_16_fx,26wEfx_2days,11B2_16
+Mast Cells / Basophils,11B2_16_prox,26wEprox_2days,11B2_16
+Mast Cells / Basophils,11B5_22_dist,26wEdist_5days,11B5_22
+Mast Cells / Basophils,11B5_22_fx,26wEfx_5days,11B5_22
+Mast Cells / Basophils,11B5_23_dist,26wEdist_5days,11B5_23
+Mast Cells / Basophils,11B5_23_fx,26wEfx_5days,11B5_23
+Mast Cells / Basophils,11B5_23_prox,26wEprox_5days,11B5_23
+Mast Cells / Basophils,11B5_24_prox,26wEprox_5days,11B5_24
+Mast Cells / Basophils,11C2_25_dist,26wSPFdist_2days,11C2_25
+Mast Cells / Basophils,11C2_25_fx,26wSPFfx_2days,11C2_25
+Mast Cells / Basophils,11C2_25_prox,26wSPFprox_2days,11C2_25
+Mast Cells / Basophils,11C2_26_fx,26wSPFfx_2days,11C2_26
+Mast Cells / Basophils,11C2_26_prox,26wSPFprox_2days,11C2_26
+Mast Cells / Basophils,11C2_30_dist,26wSPFdist_2days,11C2_30
+Mast Cells / Basophils,11C2_30_fx,26wSPFfx_2days,11C2_30
+Mast Cells / Basophils,11C5_31_dist,26wSPFdist_5days,11C5_31
+Mast Cells / Basophils,11C5_31_prox,26wSPFprox_5days,11C5_31
+Mast Cells / Basophils,11C5_34_dist,26wSPFdist_5days,11C5_34
+Mast Cells / Basophils,11C5_34_prox,26wSPFprox_5days,11C5_34
+Mast Cells / Basophils,11C5_36_dist,26wSPFdist_5days,11C5_36
+Mast Cells / Basophils,11C5_36_fx,26wSPFfx_5days,11C5_36
+Mast Cells / Basophils,11C5_36_prox,26wSPFprox_5days,11C5_36
+Monocytes / Macrophages,11A2_1O_dist,12wdist_2days,11A2_1O
+Monocytes / Macrophages,11A2_1O_fx,12wfx_2days,11A2_1O
+Monocytes / Macrophages,11A2_1O_prox,12wprox_2days,11A2_1O
+Monocytes / Macrophages,11A2_2O_dist,12wdist_2days,11A2_2O
+Monocytes / Macrophages,11A2_2O_fx,12wfx_2days,11A2_2O
+Monocytes / Macrophages,11A2_2O_prox,12wprox_2days,11A2_2O
+Monocytes / Macrophages,11A2_8O_dist,12wdist_2days,11A2_8O
+Monocytes / Macrophages,11A2_8O_fx,12wfx_2days,11A2_8O
+Monocytes / Macrophages,11A2_8O_prox,12wprox_2days,11A2_8O
+Monocytes / Macrophages,11A5_10_dist,12wdist_5days,11A5_10
+Monocytes / Macrophages,11A5_10_fx,12wfx_5days,11A5_10
+Monocytes / Macrophages,11A5_10_prox,12wprox_5days,11A5_10
+Monocytes / Macrophages,11A5_11_dist,12wdist_5days,11A5_11
+Monocytes / Macrophages,11A5_11_fx,12wfx_5days,11A5_11
+Monocytes / Macrophages,11A5_11_prox,12wprox_5days,11A5_11
+Monocytes / Macrophages,11A5_12_dist,12wdist_5days,11A5_12
+Monocytes / Macrophages,11A5_12_fx,12wfx_5days,11A5_12
+Monocytes / Macrophages,11A5_12_prox,12wprox_5days,11A5_12
+Monocytes / Macrophages,11B2_14_dist,26wEdist_2days,11B2_14
+Monocytes / Macrophages,11B2_14_fx,26wEfx_2days,11B2_14
+Monocytes / Macrophages,11B2_14_prox,26wEprox_2days,11B2_14
+Monocytes / Macrophages,11B2_15_dist,26wEdist_2days,11B2_15
+Monocytes / Macrophages,11B2_15_fx,26wEfx_2days,11B2_15
+Monocytes / Macrophages,11B2_15_prox,26wEprox_2days,11B2_15
+Monocytes / Macrophages,11B2_16_dist,26wEdist_2days,11B2_16
+Monocytes / Macrophages,11B2_16_fx,26wEfx_2days,11B2_16
+Monocytes / Macrophages,11B2_16_prox,26wEprox_2days,11B2_16
+Monocytes / Macrophages,11B5_22_dist,26wEdist_5days,11B5_22
+Monocytes / Macrophages,11B5_22_fx,26wEfx_5days,11B5_22
+Monocytes / Macrophages,11B5_22_prox,26wEprox_5days,11B5_22
+Monocytes / Macrophages,11B5_23_dist,26wEdist_5days,11B5_23
+Monocytes / Macrophages,11B5_23_fx,26wEfx_5days,11B5_23
+Monocytes / Macrophages,11B5_23_prox,26wEprox_5days,11B5_23
+Monocytes / Macrophages,11B5_24_dist,26wEdist_5days,11B5_24
+Monocytes / Macrophages,11B5_24_fx,26wEfx_5days,11B5_24
+Monocytes / Macrophages,11B5_24_prox,26wEprox_5days,11B5_24
+Monocytes / Macrophages,11C2_25_dist,26wSPFdist_2days,11C2_25
+Monocytes / Macrophages,11C2_25_fx,26wSPFfx_2days,11C2_25
+Monocytes / Macrophages,11C2_25_prox,26wSPFprox_2days,11C2_25
+Monocytes / Macrophages,11C2_26_dist,26wSPFdist_2days,11C2_26
+Monocytes / Macrophages,11C2_26_fx,26wSPFfx_2days,11C2_26
+Monocytes / Macrophages,11C2_26_prox,26wSPFprox_2days,11C2_26
+Monocytes / Macrophages,11C2_30_dist,26wSPFdist_2days,11C2_30
+Monocytes / Macrophages,11C2_30_fx,26wSPFfx_2days,11C2_30
+Monocytes / Macrophages,11C2_30_prox,26wSPFprox_2days,11C2_30
+Monocytes / Macrophages,11C5_31_dist,26wSPFdist_5days,11C5_31
+Monocytes / Macrophages,11C5_31_fx,26wSPFfx_5days,11C5_31
+Monocytes / Macrophages,11C5_31_prox,26wSPFprox_5days,11C5_31
+Monocytes / Macrophages,11C5_34_dist,26wSPFdist_5days,11C5_34
+Monocytes / Macrophages,11C5_34_prox,26wSPFprox_5days,11C5_34
+Monocytes / Macrophages,11C5_36_dist,26wSPFdist_5days,11C5_36
+Monocytes / Macrophages,11C5_36_fx,26wSPFfx_5days,11C5_36
+Monocytes / Macrophages,11C5_36_prox,26wSPFprox_5days,11C5_36
+Myeloid Precursor,11A2_1O_dist,12wdist_2days,11A2_1O
+Myeloid Precursor,11A2_1O_fx,12wfx_2days,11A2_1O
+Myeloid Precursor,11A2_1O_prox,12wprox_2days,11A2_1O
+Myeloid Precursor,11A2_2O_dist,12wdist_2days,11A2_2O
+Myeloid Precursor,11A2_2O_fx,12wfx_2days,11A2_2O
+Myeloid Precursor,11A2_2O_prox,12wprox_2days,11A2_2O
+Myeloid Precursor,11A2_8O_dist,12wdist_2days,11A2_8O
+Myeloid Precursor,11A2_8O_fx,12wfx_2days,11A2_8O
+Myeloid Precursor,11A2_8O_prox,12wprox_2days,11A2_8O
+Myeloid Precursor,11A5_10_dist,12wdist_5days,11A5_10
+Myeloid Precursor,11A5_10_fx,12wfx_5days,11A5_10
+Myeloid Precursor,11A5_10_prox,12wprox_5days,11A5_10
+Myeloid Precursor,11A5_11_dist,12wdist_5days,11A5_11
+Myeloid Precursor,11A5_11_fx,12wfx_5days,11A5_11
+Myeloid Precursor,11A5_11_prox,12wprox_5days,11A5_11
+Myeloid Precursor,11A5_12_dist,12wdist_5days,11A5_12
+Myeloid Precursor,11A5_12_fx,12wfx_5days,11A5_12
+Myeloid Precursor,11A5_12_prox,12wprox_5days,11A5_12
+Myeloid Precursor,11B2_14_fx,26wEfx_2days,11B2_14
+Myeloid Precursor,11B2_14_prox,26wEprox_2days,11B2_14
+Myeloid Precursor,11B2_15_dist,26wEdist_2days,11B2_15
+Myeloid Precursor,11B2_15_fx,26wEfx_2days,11B2_15
+Myeloid Precursor,11B2_15_prox,26wEprox_2days,11B2_15
+Myeloid Precursor,11B2_16_dist,26wEdist_2days,11B2_16
+Myeloid Precursor,11B2_16_fx,26wEfx_2days,11B2_16
+Myeloid Precursor,11B2_16_prox,26wEprox_2days,11B2_16
+Myeloid Precursor,11B5_22_dist,26wEdist_5days,11B5_22
+Myeloid Precursor,11B5_22_fx,26wEfx_5days,11B5_22
+Myeloid Precursor,11B5_22_prox,26wEprox_5days,11B5_22
+Myeloid Precursor,11B5_23_dist,26wEdist_5days,11B5_23
+Myeloid Precursor,11B5_23_fx,26wEfx_5days,11B5_23
+Myeloid Precursor,11B5_23_prox,26wEprox_5days,11B5_23
+Myeloid Precursor,11B5_24_dist,26wEdist_5days,11B5_24
+Myeloid Precursor,11B5_24_prox,26wEprox_5days,11B5_24
+Myeloid Precursor,11C2_25_dist,26wSPFdist_2days,11C2_25
+Myeloid Precursor,11C2_25_fx,26wSPFfx_2days,11C2_25
+Myeloid Precursor,11C2_25_prox,26wSPFprox_2days,11C2_25
+Myeloid Precursor,11C2_26_dist,26wSPFdist_2days,11C2_26
+Myeloid Precursor,11C2_26_fx,26wSPFfx_2days,11C2_26
+Myeloid Precursor,11C2_26_prox,26wSPFprox_2days,11C2_26
+Myeloid Precursor,11C2_30_dist,26wSPFdist_2days,11C2_30
+Myeloid Precursor,11C2_30_fx,26wSPFfx_2days,11C2_30
+Myeloid Precursor,11C2_30_prox,26wSPFprox_2days,11C2_30
+Myeloid Precursor,11C5_31_dist,26wSPFdist_5days,11C5_31
+Myeloid Precursor,11C5_31_fx,26wSPFfx_5days,11C5_31
+Myeloid Precursor,11C5_31_prox,26wSPFprox_5days,11C5_31
+Myeloid Precursor,11C5_34_dist,26wSPFdist_5days,11C5_34
+Myeloid Precursor,11C5_34_prox,26wSPFprox_5days,11C5_34
+Myeloid Precursor,11C5_36_dist,26wSPFdist_5days,11C5_36
+Myeloid Precursor,11C5_36_fx,26wSPFfx_5days,11C5_36
+Myeloid Precursor,11C5_36_prox,26wSPFprox_5days,11C5_36
+Neutrophils,11A2_1O_dist,12wdist_2days,11A2_1O
+Neutrophils,11A2_1O_fx,12wfx_2days,11A2_1O
+Neutrophils,11A2_1O_prox,12wprox_2days,11A2_1O
+Neutrophils,11A2_2O_dist,12wdist_2days,11A2_2O
+Neutrophils,11A2_2O_fx,12wfx_2days,11A2_2O
+Neutrophils,11A2_2O_prox,12wprox_2days,11A2_2O
+Neutrophils,11A2_8O_dist,12wdist_2days,11A2_8O
+Neutrophils,11A2_8O_fx,12wfx_2days,11A2_8O
+Neutrophils,11A2_8O_prox,12wprox_2days,11A2_8O
+Neutrophils,11A5_10_dist,12wdist_5days,11A5_10
+Neutrophils,11A5_10_fx,12wfx_5days,11A5_10
+Neutrophils,11A5_10_prox,12wprox_5days,11A5_10
+Neutrophils,11A5_11_dist,12wdist_5days,11A5_11
+Neutrophils,11A5_11_fx,12wfx_5days,11A5_11
+Neutrophils,11A5_11_prox,12wprox_5days,11A5_11
+Neutrophils,11A5_12_dist,12wdist_5days,11A5_12
+Neutrophils,11A5_12_fx,12wfx_5days,11A5_12
+Neutrophils,11A5_12_prox,12wprox_5days,11A5_12
+Neutrophils,11B2_14_dist,26wEdist_2days,11B2_14
+Neutrophils,11B2_14_fx,26wEfx_2days,11B2_14
+Neutrophils,11B2_14_prox,26wEprox_2days,11B2_14
+Neutrophils,11B2_15_dist,26wEdist_2days,11B2_15
+Neutrophils,11B2_15_fx,26wEfx_2days,11B2_15
+Neutrophils,11B2_15_prox,26wEprox_2days,11B2_15
+Neutrophils,11B2_16_dist,26wEdist_2days,11B2_16
+Neutrophils,11B2_16_fx,26wEfx_2days,11B2_16
+Neutrophils,11B2_16_prox,26wEprox_2days,11B2_16
+Neutrophils,11B5_22_dist,26wEdist_5days,11B5_22
+Neutrophils,11B5_22_fx,26wEfx_5days,11B5_22
+Neutrophils,11B5_22_prox,26wEprox_5days,11B5_22
+Neutrophils,11B5_23_dist,26wEdist_5days,11B5_23
+Neutrophils,11B5_23_fx,26wEfx_5days,11B5_23
+Neutrophils,11B5_23_prox,26wEprox_5days,11B5_23
+Neutrophils,11B5_24_dist,26wEdist_5days,11B5_24
+Neutrophils,11B5_24_fx,26wEfx_5days,11B5_24
+Neutrophils,11B5_24_prox,26wEprox_5days,11B5_24
+Neutrophils,11C2_25_dist,26wSPFdist_2days,11C2_25
+Neutrophils,11C2_25_fx,26wSPFfx_2days,11C2_25
+Neutrophils,11C2_25_prox,26wSPFprox_2days,11C2_25
+Neutrophils,11C2_26_dist,26wSPFdist_2days,11C2_26
+Neutrophils,11C2_26_fx,26wSPFfx_2days,11C2_26
+Neutrophils,11C2_26_prox,26wSPFprox_2days,11C2_26
+Neutrophils,11C2_30_dist,26wSPFdist_2days,11C2_30
+Neutrophils,11C2_30_fx,26wSPFfx_2days,11C2_30
+Neutrophils,11C2_30_prox,26wSPFprox_2days,11C2_30
+Neutrophils,11C5_31_dist,26wSPFdist_5days,11C5_31
+Neutrophils,11C5_31_fx,26wSPFfx_5days,11C5_31
+Neutrophils,11C5_31_prox,26wSPFprox_5days,11C5_31
+Neutrophils,11C5_34_dist,26wSPFdist_5days,11C5_34
+Neutrophils,11C5_34_prox,26wSPFprox_5days,11C5_34
+Neutrophils,11C5_36_dist,26wSPFdist_5days,11C5_36
+Neutrophils,11C5_36_fx,26wSPFfx_5days,11C5_36
+Neutrophils,11C5_36_prox,26wSPFprox_5days,11C5_36
+NK Cells,11A2_1O_dist,12wdist_2days,11A2_1O
+NK Cells,11A2_1O_fx,12wfx_2days,11A2_1O
+NK Cells,11A2_1O_prox,12wprox_2days,11A2_1O
+NK Cells,11A2_2O_dist,12wdist_2days,11A2_2O
+NK Cells,11A2_2O_prox,12wprox_2days,11A2_2O
+NK Cells,11A2_8O_dist,12wdist_2days,11A2_8O
+NK Cells,11A2_8O_fx,12wfx_2days,11A2_8O
+NK Cells,11A2_8O_prox,12wprox_2days,11A2_8O
+NK Cells,11A5_10_prox,12wprox_5days,11A5_10
+NK Cells,11A5_11_dist,12wdist_5days,11A5_11
+NK Cells,11A5_11_fx,12wfx_5days,11A5_11
+NK Cells,11A5_11_prox,12wprox_5days,11A5_11
+NK Cells,11A5_12_dist,12wdist_5days,11A5_12
+NK Cells,11A5_12_fx,12wfx_5days,11A5_12
+NK Cells,11A5_12_prox,12wprox_5days,11A5_12
+NK Cells,11B2_14_dist,26wEdist_2days,11B2_14
+NK Cells,11B2_14_fx,26wEfx_2days,11B2_14
+NK Cells,11B2_14_prox,26wEprox_2days,11B2_14
+NK Cells,11B2_15_dist,26wEdist_2days,11B2_15
+NK Cells,11B2_15_fx,26wEfx_2days,11B2_15
+NK Cells,11B2_15_prox,26wEprox_2days,11B2_15
+NK Cells,11B2_16_fx,26wEfx_2days,11B2_16
+NK Cells,11B5_23_dist,26wEdist_5days,11B5_23
+NK Cells,11B5_24_dist,26wEdist_5days,11B5_24
+NK Cells,11C2_25_dist,26wSPFdist_2days,11C2_25
+NK Cells,11C2_25_fx,26wSPFfx_2days,11C2_25
+NK Cells,11C2_25_prox,26wSPFprox_2days,11C2_25
+NK Cells,11C2_26_dist,26wSPFdist_2days,11C2_26
+NK Cells,11C2_26_fx,26wSPFfx_2days,11C2_26
+NK Cells,11C2_26_prox,26wSPFprox_2days,11C2_26
+NK Cells,11C2_30_dist,26wSPFdist_2days,11C2_30
+NK Cells,11C2_30_fx,26wSPFfx_2days,11C2_30
+NK Cells,11C2_30_prox,26wSPFprox_2days,11C2_30
+NK Cells,11C5_31_dist,26wSPFdist_5days,11C5_31
+NK Cells,11C5_31_fx,26wSPFfx_5days,11C5_31
+NK Cells,11C5_31_prox,26wSPFprox_5days,11C5_31
+NK Cells,11C5_34_dist,26wSPFdist_5days,11C5_34
+NK Cells,11C5_34_prox,26wSPFprox_5days,11C5_34
+NK Cells,11C5_36_dist,26wSPFdist_5days,11C5_36
+NK Cells,11C5_36_fx,26wSPFfx_5days,11C5_36
+NK Cells,11C5_36_prox,26wSPFprox_5days,11C5_36
+Plasma Cells,11A2_1O_dist,12wdist_2days,11A2_1O
+Plasma Cells,11A2_1O_prox,12wprox_2days,11A2_1O
+Plasma Cells,11A5_10_fx,12wfx_5days,11A5_10
+Plasma Cells,11A5_11_prox,12wprox_5days,11A5_11
+Plasma Cells,11B2_14_dist,26wEdist_2days,11B2_14
+Plasma Cells,11B2_14_fx,26wEfx_2days,11B2_14
+Plasma Cells,11B2_14_prox,26wEprox_2days,11B2_14
+Plasma Cells,11B2_15_dist,26wEdist_2days,11B2_15
+Plasma Cells,11B2_15_fx,26wEfx_2days,11B2_15
+Plasma Cells,11B2_16_fx,26wEfx_2days,11B2_16
+Plasma Cells,11B5_22_dist,26wEdist_5days,11B5_22
+Plasma Cells,11B5_22_prox,26wEprox_5days,11B5_22
+Plasma Cells,11B5_23_fx,26wEfx_5days,11B5_23
+Plasma Cells,11B5_23_prox,26wEprox_5days,11B5_23
+Plasma Cells,11C2_25_dist,26wSPFdist_2days,11C2_25
+Plasma Cells,11C2_25_fx,26wSPFfx_2days,11C2_25
+Plasma Cells,11C2_25_prox,26wSPFprox_2days,11C2_25
+Plasma Cells,11C2_26_dist,26wSPFdist_2days,11C2_26
+Plasma Cells,11C2_26_fx,26wSPFfx_2days,11C2_26
+Plasma Cells,11C2_30_dist,26wSPFdist_2days,11C2_30
+Plasma Cells,11C2_30_fx,26wSPFfx_2days,11C2_30
+Plasma Cells,11C2_30_prox,26wSPFprox_2days,11C2_30
+Plasma Cells,11C5_31_dist,26wSPFdist_5days,11C5_31
+Plasma Cells,11C5_31_fx,26wSPFfx_5days,11C5_31
+Plasma Cells,11C5_31_prox,26wSPFprox_5days,11C5_31
+Plasma Cells,11C5_34_dist,26wSPFdist_5days,11C5_34
+Plasma Cells,11C5_34_prox,26wSPFprox_5days,11C5_34
+Plasma Cells,11C5_36_dist,26wSPFdist_5days,11C5_36
+T Cells,11A2_1O_dist,12wdist_2days,11A2_1O
+T Cells,11A2_1O_fx,12wfx_2days,11A2_1O
+T Cells,11A2_1O_prox,12wprox_2days,11A2_1O
+T Cells,11A2_2O_dist,12wdist_2days,11A2_2O
+T Cells,11A2_2O_fx,12wfx_2days,11A2_2O
+T Cells,11A2_2O_prox,12wprox_2days,11A2_2O
+T Cells,11A2_8O_dist,12wdist_2days,11A2_8O
+T Cells,11A2_8O_fx,12wfx_2days,11A2_8O
+T Cells,11A2_8O_prox,12wprox_2days,11A2_8O
+T Cells,11A5_10_dist,12wdist_5days,11A5_10
+T Cells,11A5_10_fx,12wfx_5days,11A5_10
+T Cells,11A5_10_prox,12wprox_5days,11A5_10
+T Cells,11A5_11_dist,12wdist_5days,11A5_11
+T Cells,11A5_11_fx,12wfx_5days,11A5_11
+T Cells,11A5_12_dist,12wdist_5days,11A5_12
+T Cells,11A5_12_fx,12wfx_5days,11A5_12
+T Cells,11A5_12_prox,12wprox_5days,11A5_12
+T Cells,11B2_14_dist,26wEdist_2days,11B2_14
+T Cells,11B2_14_fx,26wEfx_2days,11B2_14
+T Cells,11B2_14_prox,26wEprox_2days,11B2_14
+T Cells,11B2_15_dist,26wEdist_2days,11B2_15
+T Cells,11B2_15_fx,26wEfx_2days,11B2_15
+T Cells,11B2_15_prox,26wEprox_2days,11B2_15
+T Cells,11B2_16_dist,26wEdist_2days,11B2_16
+T Cells,11B2_16_fx,26wEfx_2days,11B2_16
+T Cells,11B2_16_prox,26wEprox_2days,11B2_16
+T Cells,11B5_22_dist,26wEdist_5days,11B5_22
+T Cells,11B5_22_fx,26wEfx_5days,11B5_22
+T Cells,11B5_22_prox,26wEprox_5days,11B5_22
+T Cells,11B5_23_dist,26wEdist_5days,11B5_23
+T Cells,11B5_23_fx,26wEfx_5days,11B5_23
+T Cells,11B5_23_prox,26wEprox_5days,11B5_23
+T Cells,11B5_24_dist,26wEdist_5days,11B5_24
+T Cells,11B5_24_fx,26wEfx_5days,11B5_24
+T Cells,11B5_24_prox,26wEprox_5days,11B5_24
+T Cells,11C2_25_dist,26wSPFdist_2days,11C2_25
+T Cells,11C2_25_fx,26wSPFfx_2days,11C2_25
+T Cells,11C2_25_prox,26wSPFprox_2days,11C2_25
+T Cells,11C2_26_dist,26wSPFdist_2days,11C2_26
+T Cells,11C2_26_fx,26wSPFfx_2days,11C2_26
+T Cells,11C2_26_prox,26wSPFprox_2days,11C2_26
+T Cells,11C2_30_dist,26wSPFdist_2days,11C2_30
+T Cells,11C2_30_fx,26wSPFfx_2days,11C2_30
+T Cells,11C2_30_prox,26wSPFprox_2days,11C2_30
+T Cells,11C5_31_dist,26wSPFdist_5days,11C5_31
+T Cells,11C5_31_fx,26wSPFfx_5days,11C5_31
+T Cells,11C5_31_prox,26wSPFprox_5days,11C5_31
+T Cells,11C5_34_dist,26wSPFdist_5days,11C5_34
+T Cells,11C5_34_prox,26wSPFprox_5days,11C5_34
+T Cells,11C5_36_dist,26wSPFdist_5days,11C5_36
+T Cells,11C5_36_fx,26wSPFfx_5days,11C5_36
+T Cells,11C5_36_prox,26wSPFprox_5days,11C5_36

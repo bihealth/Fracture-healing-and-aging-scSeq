@@ -1,0 +1,915 @@
+---
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+params:
+  title: "Bone healing Fig 3"
+  object: "Figures/data/sobj_group_force_final_version.rds"
+  git_path: "/mnt/d/work/mireille/fracture-healing-and-aging-scseq"
+  figure_out_path: "/mnt/d/onedrive/OneDrive - Charité - Universitätsmedizin Berlin/Third version/Figures/redone/"
+  gene_info: "Figures/data/gene_id_name_type.tsv"
+title: "`r params$title`"
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, cache.lazy=FALSE, message=FALSE, warning=FALSE)
+
+suppressPackageStartupMessages(library(Seurat))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(gtools))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(cowplot))
+suppressPackageStartupMessages(library(DESeq2))
+suppressPackageStartupMessages(library(ggrepel))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(RColorBrewer))
+suppressPackageStartupMessages(library(patchwork))
+
+options(future.globals.maxSize = 12 * 1024 * 1024^2)
+
+```
+
+For this analysis, we used the following parameters:
+
+```{r print parameters}
+
+pars <- as.data.frame(do.call("rbind", params))
+colnames(pars) <- "parameters_used"
+pars
+
+```
+
+Load Seurat object.
+
+```{r read_object, fig.height=4, fig.width=8}
+
+git_path <- params$git_path
+figure_out_path <- params$figure_out_path
+
+sobj <- readRDS(file=file.path(git_path,params$object))
+```
+
+
+
+Renaming the Age group
+```{r rename group}
+
+sobj$Age_raw<-NULL
+Idents(sobj)<-sobj$age_strain
+new.cluster.ids <- c("Young","Immune-aged","Aged")
+names(new.cluster.ids) <- levels(sobj)
+sobj$Age_raw<-Idents(sobj)
+
+add_meta_strain <- sobj[[]] %>%
+  tibble::rownames_to_column("cells") %>%
+  select(cells, Age_raw) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
+                       ifelse(Age_raw=="26w_nonSPF", "Immune-aged", 
+                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  select(cells, strain) %>%
+  tibble::column_to_rownames("cells")
+
+sobj <- AddMetaData(sobj, metadata = add_meta_strain)
+
+```
+
+Renaming a few cell types.
+```{r rename cells}
+
+Idents(sobj)<-sobj$seurat_clusters
+new.cluster.ids <- c( "Monocytes", "Neutrophils", "Myeloid Precursor", "Monocytes", "Eosinophils",
+                      "Monocytes", "Dendritic Cells", "Neutrophils", "Myeloid Precursor", "Myeloid Precursor",
+                      "Myeloid Precursor", "T Cells", "Neutrophils", 
+                      "B Cells","Monocytes", "B Cells","HPCs","Monocytes","T Cells","Neutrophils","Monocytes", "Monocytes","NK Cells","Basophils","Monocytes","HPCs","Erythroblast","B Cells","Eosinophils","Monocytes","Plasma Cells")
+
+names(new.cluster.ids) <- levels(sobj)
+sobj <- RenameIdents(sobj, new.cluster.ids)
+sobj$CellTypes<-Idents(sobj)
+
+```
+
+
+Load DESeq2 pseudobulk results. For full documentation of DESeq2 analysis, refer to Scritps/DESeq2.Rmd.
+
+
+```{r res_df}
+
+res_df <- read.delim(file.path(git_path,"Figures/data/de_results_pseudoid_analysis.tsv"))
+
+selected_contrasts <- c("12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx",
+                        "26w_SPF_5days_fx_vs_26w_SPF_2days_fx",
+                        "26w_nonSPF_2days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_SPF_2days_fx_vs_12w_nonSPF_2days_fx",
+                        "26w_SPF_2days_fx_vs_26w_nonSPF_2days_fx",
+                        "12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx",
+                        "12w_nonSPF_5days_proximal_vs_12w_nonSPF_5days_fx",
+                        "12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_proximal",
+                        "26w_nonSPF_5days_distal_vs_26w_nonSPF_5days_fx",
+                        "26w_nonSPF_5days_proximal_vs_26w_nonSPF_5days_fx",
+                        "26w_nonSPF_5days_distal_vs_26w_nonSPF_5days_proximal",
+                        "26w_SPF_5days_distal_vs_26w_SPF_5days_fx",
+                        "26w_SPF_5days_proximal_vs_26w_SPF_5days_fx",
+                        "26w_SPF_5days_distal_vs_26w_SPF_5days_proximal")
+
+cs <- data.frame(contrast=unique(res_df$contrast),
+                 new=selected_contrasts)
+
+res_df <- res_df %>%
+  left_join(cs) %>%
+  dplyr::rename(old_contrast=contrast,
+         contrast=new)
+
+gene_info <- read.delim(file.path(git_path,params$gene_info), header=F)
+
+colnames(gene_info) <- c("gene_id","gene_name","gene_type")
+
+res_df <- res_df %>%
+  left_join(gene_info)
+```
+
+
+
+
+
+```{r res stats100, fig.width=7,fig.height=6}
+
+res_df %>%
+  dplyr::arrange(padj) %>%
+  dplyr::filter(!is.na(padj) & (padj < .05)) %>%
+  dplyr::mutate_if(is.numeric, signif, 2) %>%
+  DT::datatable(rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+
+```
+
+
+
+```{r add pathways, fig.width=25,fig.height=20}
+library(tmod)
+
+# this is to document how the mouse orthologues were mapped for the tmod pathways
+
+# data(tmod)
+# 
+# library(orthomapper)
+# mousehum <- orthologs(10090, 9606)
+# mousehum$h_symbol <- entrez_annotate(mousehum$T.9606)$SYMBOL
+# mousehum$m_symbol <- entrez_annotate(mousehum$T.10090)$SYMBOL
+# 
+# mousehum <- mousehum[order(mousehum$h_symbol),]
+# rows_tmod <- which(mousehum$h_symbol %in% tmod$gv)
+# mgenes <- mousehum$m_symbol[rows_tmod]
+# 
+# list_tmod <- sapply(tmod$gs2gv, function(x) tmod$gv[x] )
+# list_tmod <- sapply(list_tmod, function(x) x[order(x)])
+# list_tmod <- sapply(list_tmod, function(x) x[which(x %in%  mousehum$h_symbol)])
+# list_tmod <- sapply(list_tmod, function(x) mousehum[which(mousehum$h_symbol %in% x), "m_symbol"])
+# list_tmod <- sapply(list_tmod, function(x) which(mgenes %in% x))
+# 
+# tmod_mm <- tmod
+# 
+# tmod_mm$gv <- mgenes
+# tmod_mm$gs2gv <- list_tmod
+
+# save tmod mouse object
+# saveRDS(tmod_mm, "tmod_mm.rds")
+
+
+tmod_mm <- readRDS(file.path(git_path,"Figures/data/tmod_mm.rds"))
+df2tmod <- function(df, gene_id_col=ncol(df), module_id_col=1, module_title_col=2) {
+
+  require(tmod, quietly=TRUE)
+
+  gene_ids <- df[[gene_id_col]]
+  module_ids <- df[[module_id_col]]
+  m2g <- tapply(gene_ids, module_ids, list)
+  df[[gene_id_col]] <- NULL
+  df <- df[!duplicated(df[[module_id_col]]), ]
+  colnames(df)[module_id_col] <- "ID"
+  colnames(df)[module_title_col] <- "Title"
+
+  makeTmod(modules=df, modules2genes=m2g)
+}
+
+df <- as.data.frame(msigdbr::msigdbr(species='Mus musculus'))
+df <- df[ , c("gs_name", "gs_id", "gs_cat", "gs_subcat", "gene_symbol") ]
+colnames(df) <- c("Title", "ID", "Category", "Subcategory", "GeneID")
+msig <- df2tmod(df[!is.na(df$GeneID),], gene_id_col=ncol(df), module_id_col=2, module_title_col=1)
+sel <- (msig$gs$Category %in% c("H"))  | (msig$gs$Subcategory %in% c('CP:REACTOME','GO:BP','CP:KEGG'))
+
+```
+
+
+
+```{r run tmod mm, fig.width=5,fig.height=7}
+
+res <- res_df %>%
+  filter(gene_type=="protein_coding")
+res <- split(res, f = res$contrast)
+
+genes <- lapply(res, function(x) x %>%
+                  filter(!is.na(padj)) %>%
+                  arrange(pvalue))
+genes_reduced <- genes["26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"]
+
+lgenes <- lapply(genes_reduced, function(x) x$gene_name)
+
+res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
+
+res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-3 & AUC > .65))
+
+
+```
+
+Figure 3A
+```{r f3a, fig.width = 8/2, fig.height =3}
+
+#################### Volcano plot #######################
+DF <- res_df[grepl("26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx", res_df$contrast), ]
+# add a column of NAs
+DF$direction <- "N"
+# if log2Foldchange > 0.5 and pvalue < 0.05, set as "UP" 
+DF$direction[(DF$log2FoldChange > 0.5 & DF$padj < 0.1)] <- "up"
+DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
+
+(fig3a <- DF %>% 
+    dplyr::filter(gene_type=="protein_coding") %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),col=direction)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=DF %>%
+                       dplyr::filter(gene_type=="protein_coding") %>% 
+                       dplyr::filter(direction=="up"|direction=="down") ,
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=2.5,color='black',max.overlaps=30,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c("blue","grey","red"))+ theme_classic() + 
+    theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+                     axis.title = element_text(size = 8),  
+                     axis.text = element_text(size = 8),
+                     axis.ticks.x=element_blank(),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_blank()) + 
+    labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
+  ggtitle("Immune-aged: hematoma"))
+
+```
+
+Figure S3b
+```{r sf3b, fig.width = 8/2, fig.height =3}
+
+#################### Volcano plot #######################
+DF <- res_df[grepl("26w_SPF_5days_fx_vs_26w_SPF_2days_fx", res_df$contrast), ]
+# add a column of NAs
+DF$direction <- "N"
+# if log2Foldchange > 0.5 and pvalue < 0.05, set as "UP" 
+DF$direction[(DF$log2FoldChange > 0.5 & DF$padj < 0.1)] <- "up"
+DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
+
+(sf3b <- DF %>% 
+    dplyr::filter(gene_type=="protein_coding") %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),col=direction)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=DF %>%
+                       dplyr::filter(gene_type=="protein_coding") %>% 
+                       dplyr::filter(direction=="up"|direction=="down") ,
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=2.5,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c("blue","grey","red"))+ theme_classic() + 
+    theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+                     axis.title = element_text(size = 8),  
+                     axis.text = element_text(size = 8),
+                     axis.ticks.x=element_blank(),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_blank()) + 
+    labs(title = "",x = "log2FoldChange (5 days vs. 2 days)")+
+  ggtitle("Aged: hematoma"))
+
+```
+
+
+Figure S3a
+```{r sf3a, fig.width = 8/2, fig.height =3}
+
+#################### Volcano plot #######################
+DF <- res_df[grepl("12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx", res_df$contrast), ]
+# add a column of NAs
+DF$direction <- "N"
+# if log2Foldchange > 0.5 and pvalue < 0.05, set as "UP" 
+DF$direction[(DF$log2FoldChange > 0.5 & DF$padj < 0.1)] <- "up"
+DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
+
+(sf3a <- DF %>% 
+    dplyr::filter(gene_type=="protein_coding") %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),col=direction)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=DF %>%
+                       dplyr::filter(gene_type=="protein_coding") %>% 
+                       dplyr::filter(direction=="up"|direction=="down") ,
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=2.5,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c("blue","grey","red"))+ theme_classic() + 
+    theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+                     axis.title = element_text(size = 8),  
+                     axis.text = element_text(size = 8),
+                     axis.ticks.x=element_blank(),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_blank()) + 
+    labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
+  ggtitle("Young: hematoma"))
+
+```
+
+Panel plot for the immune-aged hematoma.
+
+```{r fig3b, fig.width=8/2,fig.height=3}
+
+res <- res_df %>%
+  filter(gene_type=="protein_coding")
+res <- split(res, f = res$contrast)
+
+genes <- lapply(res, function(x) x %>%
+                  filter(!is.na(padj)) %>%
+                  arrange(pvalue))
+genes_reduced <- genes["26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"]
+
+lgenes <- lapply(genes_reduced, function(x) x$gene_name)
+
+res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
+
+res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-2 & AUC > .65))
+
+
+x <- genes_reduced$"26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"
+sgenes <- tmodDecideTests(g = x$gene_name, lfc = x$log2FoldChange, pval = x$padj, lfc.thr = 0.5, pval.thr = 0.1, mset = tmod_mm)
+
+ids <- c("DC.M5.9", "DC.M6.9","LI.M7.2","LI.M157",
+         "LI.M7.1","LI.M7.0",
+         "DC.M3.4","LI.M68",
+         "LI.S2",
+         "DC.M4.10",
+         "LI.M47.0","LI.M47.1")
+
+names(sgenes) <- "26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"
+fig3b <- ggPanelplot(res.tmod.filtered, sgenes = sgenes,q_cutoff = 1e-7,cluster=,mset=tmod_mm,id_order =ids) + 
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.ticks.x=element_blank(),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text.x = element_blank()) + 
+  labs(title = "Immune-aged: \nhematoma, \n5 days vs 2 days")
+fig3b
+```
+
+For young only one gene set is found.
+
+```{r sf3c, fig.width=8/2,fig.height=3, eval=F}
+
+res <- res_df %>%
+  filter(gene_type=="protein_coding")
+res <- split(res, f = res$contrast)
+
+genes <- lapply(res, function(x) x %>%
+                  filter(!is.na(padj)) %>%
+                  arrange(pvalue))
+genes_reduced <- genes["12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx"]
+
+lgenes <- lapply(genes_reduced, function(x) x$gene_name)
+
+res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
+
+res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-2 & AUC > .65))
+
+
+x <- genes_reduced$"12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx"
+sgenes <- tmodDecideTests(g = x$gene_name, lfc = x$log2FoldChange, pval = x$padj, lfc.thr = 0.5, pval.thr = 0.1, mset = tmod_mm)
+
+names(sgenes) <- "12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx"
+sf3c <- ggPanelplot(res.tmod.filtered, sgenes = sgenes, q_cutoff = 1e-7,cluster=F) +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.ticks.x=element_blank(),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text.x = element_blank()) +
+  labs(title = "Young: \nhematoma, \n5 days vs 2 days")
+sf3c
+```
+
+For aged no enrichment is found, so no figure is generated here.
+```{r sf3d, fig.width=5,fig.height=7, eval=F}
+
+res <- res_df %>%
+  filter(gene_type=="protein_coding")
+res <- split(res, f = res$contrast)
+
+genes <- lapply(res, function(x) x %>%
+                  filter(!is.na(padj)) %>%
+                  arrange(pvalue))
+genes_reduced <- genes["26w_SPF_5days_fx_vs_26w_SPF_2days_fx"]
+
+lgenes <- lapply(genes_reduced, function(x) x$gene_name)
+
+res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
+
+res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-2 & AUC > .65))
+
+
+x <- genes_reduced$"26w_SPF_5days_fx_vs_26w_SPF_2days_fx"
+sgenes <- tmodDecideTests(g = x$gene_name, lfc = x$log2FoldChange, pval = x$padj, lfc.thr = 0.5, pval.thr = 0.1, mset = tmod_mm)
+
+names(sgenes) <- "26w_SPF_5days_fx_vs_26w_SPF_2days_fx"
+# sf3d <- ggPanelplot(res.tmod.filtered, sgenes = sgenes, q_cutoff = 1e-7,cluster=F) +
+#   theme(text = element_text(family = "Arial"),
+#         plot.title = element_text(size = 8,hjust = 0.5,),
+#         axis.title = element_text(size = 8),
+#         axis.text = element_text(size = 8),
+#         axis.ticks.x=element_blank(),
+#         legend.text = element_text(size =8),
+#         legend.title = element_text(size = 8),
+#         strip.text.x = element_blank()) +
+#   labs(title = "Aged: \nhematoma, \n5 days vs 2 days")
+# sf3d
+```
+
+Generating figure 3C
+
+```{r fig3c, fig.width = 8/2, fig.height = 3}
+
+res <- res_df %>%
+  filter(gene_type=="protein_coding")
+res <- split(res, f = res$contrast)
+
+genes <- lapply(res, function(x) x %>%
+                  filter(!is.na(padj)) %>%
+                  arrange(pvalue))
+genes_reduced <- genes["26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"]
+
+lgenes <- lapply(genes_reduced, function(x) x$gene_name)
+
+res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
+
+res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-2 & AUC > .65))
+x <- genes_reduced$"26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"
+
+# gene_set <-"LI.M68"
+# gene_set <- "DC.M3.4"
+gene_set <-"LI.M47.0"
+# gene_set <-"DC.M5.9"
+# gene_set <-"LI.M7.0"
+
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+
+adj_p <- res.tmod.filtered[["26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"]] %>%
+  filter(ID==gene_set) %>%
+  pull(adj.P.Val)
+  
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+genes_in_gene_set <- genes_in_gene_set[genes_in_gene_set %in% x$gene_name]
+
+df_colors <- x %>% 
+  filter(gene_name %in% genes_in_gene_set) %>%
+  mutate(color=ifelse(log2FoldChange >0.5 & padj < .1, "red",
+                      ifelse(log2FoldChange <(-0.5) & padj < .1, "blue",
+                             "grey"))) %>%
+  select(gene_name,color)
+
+gene.colors <- df_colors$color
+names(gene.colors) <- df_colors$gene_name
+
+######### Evidence plot ###############################
+update_geom_defaults("text_repel", list(size = 2.5))
+(fig3c <- ggEvidencePlot(x$gene_name, gene_set, mset = tmod_mm,filter=F,gene.colors=gene.colors) + 
+    theme_classic() +  
+    theme(text = element_text(family = "Arial",size=8),
+          plot.title = element_text(size = 8,hjust = 0.5,),
+          axis.title = element_text(size = 8), 
+          axis.text = element_text(size = 8),
+          axis.ticks.x=element_blank(),
+          legend.text = element_text(size =8),
+          legend.title = element_text(size = 8),
+          legend.position = "none",
+          strip.text.x = element_blank()) + 
+    labs(title = paste0(gene_set_name, " ", gene_set,"\nPadj=",signif(adj_p,digits=3))))
+```
+
+```{r add module scores, fig.width=10,fig.height=6}
+
+
+gene_set <-"LI.M47.0" # B cells
+
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+  
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+
+sobj <- AddModuleScore(sobj,
+                  features = list(genes_in_gene_set),
+                  name="B_cell_gene_score")
+
+gene_set <- "DC.M3.4" # interferon
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+sobj <- AddModuleScore(sobj,
+                  features = list(genes_in_gene_set),
+                  name="Interferon_gene_score")
+
+gene_set <-"LI.M7.0" # T cells
+gene_set_name <- tmod_mm$gs %>%
+  filter(ID==gene_set) %>%
+  pull(Title)
+  
+genes_in_gene_set <- 
+  tmod_mm$gv[tmod_mm$gs2gv[[which(tmod_mm$gs$ID==gene_set)]]]
+
+sobj <- AddModuleScore(sobj,
+                  features = list(genes_in_gene_set),
+                  name="T_cell_gene_score")
+```
+
+
+Generating Figure 3 E & F
+```{r fig3ef, fig.width = 8/2, fig.height = 3}
+
+############# Downsample ################################
+# Setting seeds 
+set.seed(10) 
+Idents(sobj) <- "group"
+Downsample<- subset(sobj, downsample=500)
+############# Umap plot ################################
+
+Idents(Downsample)<-Downsample$timepoint
+testdata <-subset(Downsample, idents = c("2days"))
+Idents(testdata)<-testdata$compartments
+test <-subset(testdata, idents = c("Hematoma"))
+Idents(test)<-test$strain
+Immunoaged <- subset(test, idents = c("Immune-aged"))
+Idents(Immunoaged)<-Immunoaged$CellTypes
+# Plot module scores bcells 2 days 
+fig3e<-FeaturePlot(Immunoaged,
+                 features = "B_cell_gene_score1",label = FALSE, repel = TRUE,pt.size = .2) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")), limits = c(0.0, 1.5)) +
+  guides(colour=guide_colorbar(title="Gene module \nscore"))+
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 8),  
+        axis.text = element_text(size = 8),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text.x = element_text(size = 8),
+        legend.position = "top",
+        legend.justification = "center") + labs(title = "Immune-aged: hematoma, 2 days") & NoAxes()
+
+fig3e
+
+################################# 5 days ############################################
+Idents(Downsample)<-Downsample$timepoint
+testdata <-subset(Downsample, idents = c("5days"))
+Idents(testdata)<-testdata$compartments
+test <-subset(testdata, idents = c("Hematoma"))
+Idents(test)<-test$strain
+Immunoaged <- subset(test, idents = c("Immune-aged"))
+Idents(Immunoaged)<-Immunoaged$CellTypes
+# Plot module scores bcells 5 days 
+fig3f<-FeaturePlot(Immunoaged,
+                 features = "B_cell_gene_score1",label = FALSE, repel = TRUE,pt.size = .2) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")), limits = c(0.0, 1.5)) +
+  guides(colour=guide_colorbar(title="Gene module \nscore"))+
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 8),  
+        axis.text = element_text(size = 8),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text.x = element_text(size = 8),
+        legend.position = "top",
+        legend.justification = "center") + labs(title = "Immune-aged: hematoma, 5 days")  & NoAxes()
+
+fig3f
+```
+
+```{r fig3d, fig.width=8/2,fig.height=3}
+
+library(ggpubr)
+my_comparisons <- list(c("2days", "5days"))
+cols <- c("strain", "compartments", "CellTypes",  "timepoint", "B_cell_gene_score1")
+
+
+fig3d <- sobj[[]] %>%
+  select(all_of(cols)) %>%
+  filter(compartments=="Hematoma" & strain =="Immune-aged") %>%
+  filter(CellTypes == "B Cells") %>%
+  ggplot(aes(timepoint, B_cell_gene_score1, colour=timepoint))+
+  geom_boxplot(fill="white",outlier.shape = NA)+
+  geom_point(shape=1,position = position_jitterdodge(jitter.width = .3),size=1)+
+  coord_cartesian(ylim=c(-0.25,1.5))+
+  facet_wrap(~CellTypes, scales="free_x")+
+  stat_compare_means(comparisons = my_comparisons, label="p.signif",
+                     method = "wilcox.test",label.y =1.2, hide.ns = FALSE,size=3.5) +
+  scale_colour_manual(values=c("dodgerblue3","orange3"))+
+  ylab("Gene module score B cell")+
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_blank(),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text = element_text(size=8)) +
+  labs(x=c())
+
+fig3d
+
+```
+
+```{r sfig3d, fig.width=8,fig.height=3}
+
+library(ggpubr)
+my_comparisons <- list(c("2days", "5days"))
+
+# score_type_lab=c("B_cell_gene_score1"="B cell score",
+#                           "Interferon_gene_score1"="Ifn score",
+#                           "T_cell_gene_score1"="T cell score")
+
+score_type_lab=c("B_cell_gene_score1"="B cell score")
+celltype_lab=c("Monocytes"="Monocytes",
+                         "Neutrophils"="Neutrophils",
+                         "B Cells"="B Cells")
+          
+celltypes <- c("Monocytes", "Neutrophils","B Cells")
+# cols <- c("strain", "compartments", "CellTypes",  "timepoint", "B_cell_gene_score1","Interferon_gene_score1","T_cell_gene_score1")
+
+cols <- c("strain", "compartments", "CellTypes",  "timepoint", "B_cell_gene_score1")
+
+scores <- c("B_cell_gene_score1")
+
+sf3d <- sobj[[]] %>%
+  select(all_of(cols)) %>%
+  filter(compartments=="Hematoma" & strain =="Immune-aged") %>%
+  filter(CellTypes %in% celltypes) %>%
+  pivot_longer(cols=all_of(scores), names_to="score_type", values_to="gene_module_score") %>%
+  ggplot(aes(timepoint, gene_module_score, colour=timepoint))+
+  geom_boxplot(fill="white",outlier.shape = NA)+
+  geom_point(shape=1,position = position_jitterdodge(jitter.width = .3),size=1)+
+  coord_cartesian(ylim=c(-0.25,1.5))+
+  facet_wrap(~score_type+CellTypes, scales="free_x",
+             labeller = labeller(score_type=score_type_lab,
+                                 Celltypes=celltype_lab),ncol=4) +
+  stat_compare_means(comparisons = my_comparisons, label="p.signif",
+                     method = "wilcox.test",label.y =1.2, hide.ns = FALSE,size=3.5) +
+  scale_colour_manual(values=c("dodgerblue3","orange3"))+
+  ylab("Gene module score")+
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,hjust = 0.5,),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_blank(),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text = element_text(size=8)) +
+  labs(x=c())
+
+
+sf3d
+
+```
+
+
+
+
+
+Generating Figure 3
+```{r fig3, fig.width = 8, fig.height = 9}
+
+
+(wrap_elements(fig3a)  + wrap_elements(fig3b)) /
+  (wrap_elements(fig3c) + wrap_elements(fig3d) ) /
+  (wrap_elements(fig3e) + wrap_elements(fig3f) ) +
+  plot_layout(heights=c(1,.8,1.1)) +
+  plot_annotation(tag_levels = 'A') &
+  theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+
+if (file.exists(file.path(figure_out_path,"fig3.pdf"))){
+  try(ggsave(file.path(figure_out_path,"fig3.pdf"), device = cairo_pdf,width=8,height=9), silent=T)
+  warning("file not written, please close file in the other application and rerun.")
+} else {
+  ggsave(file.path(figure_out_path,"fig3.pdf"), device = cairo_pdf,width=8,height=9)
+}
+
+```
+
+
+Generating Suppl Figure 3
+```{r, fig.width = 8, fig.height = 9}
+
+(wrap_elements(sf3a)  + wrap_elements(sf3b)) /
+  (wrap_elements(sf3c)  + plot_spacer())/
+  wrap_elements(sf3d)+
+  plot_annotation(tag_levels = 'A') &
+  theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+
+if (file.exists(file.path(figure_out_path,"SFig3.pdf"))){
+  try(ggsave(file.path(figure_out_path,"SFig3.pdf"), device = cairo_pdf,width=8,height=9), silent=T)
+  warning("file not written, please close file in the other application and rerun.")
+} else {
+  ggsave(file.path(figure_out_path,"SFig3.pdf"), device = cairo_pdf,width=8,height=9)
+}
+
+
+```
+
+supplement figure (SFig A to D)
+```{r}
+# library(RColorBrewer)
+# #################### Volcano plot #######################
+# DF <- res_df[grepl("12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx", res_df$contrast), ]
+# (SFig4_1 <- DF %>% 
+#     dplyr::filter(!is.na(padj)) %>%
+#     ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .1)) + 
+#     geom_point(size=.5, shape=1) +
+#     geom_label_repel(data=DF %>%
+#                        dplyr::filter(padj < .1),
+#                      aes(label=gene_name),
+#                      segment.size=.25,segment.alpha=.5,size=4,color='black',max.overlaps=15,
+#                      label.padding=0.05,label.size=NA) +
+#     scale_color_manual(values=c('black','red'))+ theme_classic() +  theme(text = element_text(family = "Arial"),
+#         plot.title = element_text(size = 8,hjust = 0.5,),
+#                      axis.title = element_text(size = 8),  
+#                      axis.text = element_text(size = 8),
+#                     axis.ticks.x=element_blank(),
+#                      legend.text = element_text(size =8),
+#                      legend.title = element_text(size = 8),
+#                     legend.position = "none",
+#                      strip.text.x = element_blank()) + labs(title = "Young",x = "log2FoldChange (5 days vs. 2 days)"))
+# 
+# DF <- res_df[grepl("26w_SPF_5days_fx_vs_26w_SPF_2days_fx", res_df$contrast), ]
+# (SFig4_2 <- DF %>% 
+#     dplyr::filter(!is.na(padj)) %>%
+#     ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .1)) + 
+#     geom_point(size=.5, shape=1) +
+#     geom_label_repel(data=DF %>%
+#                        dplyr::filter(padj < .1),
+#                      aes(label=gene_name),
+#                      segment.size=.25,segment.alpha=.5,size=4,color='black',max.overlaps=15,
+#                      label.padding=0.05,label.size=NA) +
+#     scale_color_manual(values=c('black','red'))+ theme_classic() +  theme(text = element_text(family = "Arial"),
+#         plot.title = element_text(size = 8,hjust = 0.5,),
+#                      axis.title = element_text(size = 8),  
+#                      axis.text = element_text(size = 8),
+#                     axis.ticks.x=element_blank(),
+#                      legend.text = element_text(size =8),
+#                      legend.title = element_text(size = 8),
+#                     legend.position = "none",
+#                      strip.text.x = element_blank()) + labs(title = "Aged",x = "log2FoldChange (5 days vs. 2 days)"))
+```
+Generating supplement Figure E
+```{r}
+# library(tmod)
+# library(disco)
+# dataset_1 <- res_df[res_df$contrast == "12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx", ]
+# dataset_2 <- res_df[res_df$contrast == "26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx", ]
+# dataset_3 <- res_df[res_df$contrast == "26w_SPF_5days_fx_vs_26w_SPF_2days_fx", ]
+# names<- c("Aged","Immunoaged")
+# orthologs <- NULL
+# orthologs <- makeMatchedOrtholog(names,dataset_3$gene_name, dataset_3$log2FoldChange,dataset_2$log2FoldChange, dataset_3$padj,dataset_2$padj,row.names = NULL, extra = NULL)
+# #ds <- disco.score(orthologs)
+# #plotDisco(orthologs, ds)
+# 
+# both<- orthologs$lfc %>% as.data.frame()
+# both$gene_name <- orthologs$genes
+# genes <- res_df[res_df$contrast == c("26w_SPF_5days_fx_vs_26w_SPF_2days_fx","26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"), ]
+# Genes <- genes[genes$padj < 0.05  & 
+#                               !is.na(genes$padj) &
+#                               abs(genes$log2FoldChange) > 0.5,] %>% pull(gene_name)
+```
+
+Plot logfoldchange against one another
+```{r cluster_composition,fig.width=10,fig.height=8}
+# # add a column of NAs
+# both$colours <- "NO"
+# # if log2Foldchange > 0.6 and pvalue < 0.05, set as "UP" 
+# both$colours[(both[,1] > 0.5 & dataset_3$padj< 0.05)] <- "UP"
+# both$colours[(both[,2] > 0.5 & dataset_2$padj< 0.05)] <- "UP"
+# # if log2Foldchange < -0.6 and pvalue < 0.05, set as "DOWN"
+# both$colours[(both[,1] < -0.5 & dataset_3$padj< 0.05)] <- "DOWN"
+# both$colours[(both[,2] < -0.5 & dataset_2$padj< 0.05)] <- "DOWN"
+# both$gene_set_labels <- ifelse(both$gene_name %in% Genes,both$gene_name, NA)
+```
+
+```{r}
+# SFig4_5 <- ggplot(both, aes(both[,1], both[,2],colour = colours)) + geom_point(shape=1, size = .5) + geom_text_repel(aes(label = gene_set_labels), size = 3, max.overlaps = 100) + ggtitle("Hematoma: Aged vs Immunoaged") + xlab("log2Foldchange (Aged)") + ylab("log2Foldchange (Immunoaged)") +  scale_color_manual(values=c("blue","grey","red")) + theme_classic() +  theme(plot.title = element_text(size = 8, hjust=0.5))
+# SFig4_5
+```
+
+Supplemenyt Figure F: disco plot young vs immunoaged
+```{r}
+# library(tmod)
+# library(disco)
+# dataset_1 <- res_df[res_df$contrast == "12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx", ]
+# dataset_2 <- res_df[res_df$contrast == "26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx", ]
+# dataset_3 <- res_df[res_df$contrast == "26w_SPF_5days_fx_vs_26w_SPF_2days_fx", ]
+# names<- c("Young","Immunoaged")
+# orthologs <- NULL
+# orthologs <- makeMatchedOrtholog(names,dataset_1$gene_name, dataset_1$log2FoldChange,dataset_2$log2FoldChange, dataset_1$padj,dataset_2$padj,row.names = NULL, extra = NULL)
+# #ds <- disco.score(orthologs)
+# #plotDisco(orthologs, ds)
+# 
+# both<- orthologs$lfc %>% as.data.frame()
+# both$gene_name <- orthologs$genes
+# genes <- res_df[res_df$contrast == c("12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx","26w_nonSPF_5days_fx_vs_26w_nonSPF_2days_fx"), ]
+# Genes <- genes[genes$padj < 0.05  & 
+#                               !is.na(genes$padj) &
+#                               abs(genes$log2FoldChange) > 0.5,] %>% pull(gene_name)
+```
+
+Plot logfoldchange against one another
+```{r cluster_composition 2,fig.width=10,fig.height=8}
+# # add a column of NAs
+# both$colours <- "NO"
+# # if log2Foldchange > 0.6 and pvalue < 0.05, set as "UP" 
+# both$colours[(both[,1] > 0.5 & dataset_1$padj< 0.05)] <- "UP"
+# both$colours[(both[,2] > 0.5 & dataset_2$padj< 0.05)] <- "UP"
+# # if log2Foldchange < -0.6 and pvalue < 0.05, set as "DOWN"
+# both$colours[(both[,1] < -0.5 & dataset_1$padj< 0.05)] <- "DOWN"
+# both$colours[(both[,2] < -0.5 & dataset_2$padj< 0.05)] <- "DOWN"
+# both$gene_set_labels <- ifelse(both$gene_name %in% Genes,both$gene_name, NA)
+```
+
+```{r}
+# SFig4_6 <- ggplot(both, aes(both[,1], both[,2],colour = colours)) + geom_point(shape=1, size = .5) + geom_text_repel(aes(label = gene_set_labels), size = 3, max.overlaps = 100) + ggtitle("Hematoma:Young vs Immunoaged") + xlab("log2Foldchange (Young)") + ylab("log2Foldchange (Immunoaged)") +  scale_color_manual(values=c("blue","grey","red")) + theme_classic() +  theme(plot.title = element_text(size = 8, hjust=0.5))
+# SFig4_6
+```
+
+
+
+generating tmod plot for figure 4
+```{r run tmod mm 2, fig.width=8/2,fig.height=3}
+
+# x <- genes$"26w_SPF_5days_fx_vs_26w_SPF_2days_fx"
+# sgenes <- tmodDecideTests(g = x$gene_name, lfc = x$log2FoldChange, pval = x$padj, lfc.thr = 0.5, pval.thr = 0.1, mset = tmod_mm)
+# 
+# names(sgenes) <- "26w_SPF_5days_fx_vs_26w_SPF_2days_fx"
+# p10 <- ggPanelplot(res.tmod.filtered, sgenes = sgenes,q_cutoff = 1e-12) + 
+#   theme(text = element_text(family = "Arial"),
+#         plot.title = element_text(size = 8,hjust = 0.5,),
+#         axis.title = element_text(size = 8),
+#         axis.text = element_text(size = 8),
+#         axis.ticks.x=element_blank(),
+#         legend.text = element_text(size =8),
+#         legend.title = element_text(size = 8),
+#         strip.text.x = element_blank()) + 
+#   labs(title = "Aged: \nhematoma, \n5 days vs 2 days")
+# p10
+```
+
+Generating supplement Figure 4
+```{r, fig.width = 14, fig.height = 10}
+# library(patchwork)
+# SFig4_1+ SFig4_2  + SFig4_6 + SFig4_5  +
+#   plot_annotation(tag_levels = 'A') + plot_layout(ncol = 2)
+# ggsave(file.path(figure_out_path,"SFig4.pdf"), device = cairo_pdf, width=8,height=9)
+
+```
+
+
+```{r session}
+
+sessionInfo()
+
+```
+
+

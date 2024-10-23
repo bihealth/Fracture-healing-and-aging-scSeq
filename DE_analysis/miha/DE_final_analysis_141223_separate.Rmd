@@ -1,0 +1,408 @@
+---
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+params:
+  title: "Analysis Mireille 151223"
+  path_to_object: "../data/cellranger_prox_dist_mouse.rds"
+  shrinkage_type: "normal"
+title: "`r params$title`"
+---
+
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, cache.lazy=FALSE, message=FALSE, warning=FALSE)
+
+suppressPackageStartupMessages(library(Seurat))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(gtools))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(cowplot))
+# suppressPackageStartupMessages(library(rstatix))
+suppressPackageStartupMessages(library(DESeq2))
+suppressPackageStartupMessages(library(ggrepel))
+suppressPackageStartupMessages(library(stringr))
+
+options(future.globals.maxSize = 12 * 1024 * 1024^2)
+
+```
+
+For this Seurat analysis, we used the following parameters:
+
+```{r print parameters}
+
+pars <- as.data.frame(do.call("rbind", params))
+colnames(pars) <- "parameters_used"
+pars
+
+```
+
+Starting with this Seurat object from Mireille.
+
+```{r read_object, fig.height=4, fig.width=8}
+
+path <- "/fast/work/groups/cubi/milekm/mireille/de/fracture-healing-and-aging-scseq/DE_analysis/miha"
+sobj <- readRDS(file.path(path,params$path_to_object))
+
+```
+
+
+```{r redo counts}
+
+selected_cell_types <- sobj[[]] %>% 
+  pull(cluster_id) %>% 
+  unique()
+
+sample <- sobj[[]] %>%
+  select(group,mouse) %>%
+  mutate(sample=paste0(group,"_",mouse)) %>%
+  select(sample)
+
+sobj <- AddMetaData(sobj, metadata = sample)
+
+# cluster_metadata_3 <- sobj[[]] %>%
+#     mutate(age = str_extract(group, "^[0-9]+w")) %>%
+#     mutate(strain = str_extract(group, "w(E|SPF|)")) %>% 
+#     mutate(time = str_extract(group, "[0-9]+days")) %>%
+#     mutate(arm = paste(age, strain, time, sep = "_")) %>%
+#     group_by(arm) %>%
+#     mutate(pseudoID = sprintf("ID%02d", as.numeric(as.factor(mouse)))) %>% 
+#   select(sample, cell_type, group, mouse, age, location, time, strain,pseudoID) %>% 
+#   distinct()
+
+expr <- list()
+
+for (cell_type in selected_cell_types) {
+ for (sample in unique(sobj[[]]$sample)) {
+   # sample <- unique(sobj[[]]$sample)[1]
+   # cell_type <- selected_cell_types[1]
+   cells <- Cells(sobj)[(sobj@meta.data$sample==sample & sobj$cluster_id==cell_type )  ] 
+   cells <- cells[!is.na(cells)]
+   if (length(cells) > 1) {
+     expr[[paste0(cell_type,';',sample)]] <- rowSums(sobj@assays$RNA@counts[,cells])
+   }
+ }
+}
+
+for (sample in unique(sobj[[]]$sample)) {
+ cells <- Cells(sobj)[(sobj@meta.data$sample==sample )]
+ cells <- cells[!is.na(cells)]
+ expr[[paste0('all;',sample)]] <- rowSums(sobj@assays$RNA@counts[,cells])
+}
+
+
+sample_name <- sub(".*-","",sub(";.*","", sub(';','-',names(expr))))
+
+colData<-data.frame(sample=names(expr),
+               cell_type=factor(sub(';.*','',names(expr))),
+               sample_name=sample_name,
+               group=sub("_11.*","",sub(".*;","",names(expr))),
+               mouse=sub('.*s_11','11',names(expr)) ,
+               age=sub("w.*","w", sample_name),
+               location=sub("_.*", "", sub(".*[wEF]","", sample_name )),
+               time = sub(".*_", "", sub("days.*", "days", sample_name)),
+               strain = ifelse(grepl("12w",sample_name), "young",
+                               ifelse(grepl("SPF", sample_name), "aged",
+                                      ifelse(grepl("wE", sample_name),"immuno", NA))))
+
+colData <- colData %>%
+  mutate(age_time_strain = paste0(age, "_", time, "_", strain)) %>%
+  group_by(age_time_strain) %>%
+  mutate(pseudoID = sprintf("ID%02d", as.numeric(as.factor(mouse))))
+
+counts <- do.call(cbind, expr)
+
+
+```
+
+
+Get number of reads per sample.
+```{r cell numbers,fig.height=10,fig.width=10}
+
+lengths <- colSums(counts)
+df_lengths <- data.frame(sample = names(lengths),
+                         n_reads = lengths) %>%
+  mutate(group = sub("_11.*","",sub(".*;", "",sample)),
+         celltype = sub(";.*", "", sample))  
+
+ggplot(df_lengths, aes(celltype,n_reads,fill=group))+
+  geom_boxplot(position=position_dodge(width=.5),width=.5, outlier.shape = 1, outlier.colour = "red")+
+  geom_point(position=position_dodge(width=.5),colour='grey30', shape=1, size=2) +
+  facet_wrap(~celltype, scales="free")
+
+```
+
+We run DESeq2 by ~group, separating each contrast and celltype. This does not account for total variance of the experiment, so results are somewhat less reliable.
+
+```{r run de 1}
+
+selected_cell_types <- c("Monocytes / Macrophages", "Neutrophils", "Myeloid Precursor", "T Cells", "B Cells", "Dendritic Cells", "all")
+
+# selected_cell_types <- c("B Cells", "Dendritic Cells")
+# selected_cell_types <- c("all")
+selected_contrasts <- c("12wfx_5days_vs_12wfx_2days",
+                        "26wEfx_5days_vs_26wEfx_2days",
+                        "26wSPFfx_5days_vs_26wSPFfx_2days",
+                        "26wEfx_2days_vs_12wfx_2days",
+                        "26wSPFfx_2days_vs_12wfx_2days",
+                        "26wSPFfx_2days_vs_26wEfx_2days",
+                        "12wdist_5days_vs_12wfx_5days",
+                        "12wprox_5days_vs_12wfx_5days",
+                        "12wdist_5days_vs_12wprox_5days",
+                        "26wEdist_5days_vs_26wEfx_5days",
+                        "26wEprox_5days_vs_26wEfx_5days",
+                        "26wEdist_5days_vs_26wEprox_5days",
+                        "26wSPFdist_5days_vs_26wSPFfx_5days",
+                        "26wSPFprox_5days_vs_26wSPFfx_5days",
+                        "26wSPFdist_5days_vs_26wSPFprox_5days")
+# selected_contrasts <- c("12wfx_5days_vs_12wfx_2days",
+                        # "26wEfx_5days_vs_26wEfx_2days")
+# all_groups <- colData$group %>%
+#   unique()
+# contrasts <- expand_grid(perturbation=all_groups, reference=all_groups) %>%
+#       filter(perturbation < reference) %>%
+#       mutate(contrast = paste0(perturbation,"_vs_",reference)) %>%
+#       pull(contrast)
+
+res <- list()
+
+contrasts <- selected_contrasts
+for (comparison in contrasts){
+  perturbation <- sub("_vs_.*", "", comparison)
+  reference <- sub(".*_vs_", "", comparison)
+  sub_res <- list()
+  for (celltype in selected_cell_types){
+    coldata_df <- colData %>%
+      dplyr::filter(cell_type %in% celltype, group %in% c(perturbation, reference))
+    counts_df <- subset(counts, select = coldata_df$sample)
+    
+    if (sum(colSums(counts_df)) != 0){
+      dds <- DESeqDataSetFromMatrix(countData=as.matrix(counts_df),
+                                    colData=coldata_df,
+                                    design=~group)
+    }
+    dds$group <- relevel(dds$group, ref = reference)
+    
+    if (celltype != "all" & celltype != "all_cells"){
+      dds <- estimateSizeFactors(dds, type='poscounts')
+      dds <- DESeq(dds, test = 'LRT', reduced = ~1, useT=TRUE, minmu=1e-6, minReplicatesForReplace=Inf)
+    } else {
+      dds <- estimateSizeFactors(dds)
+      dds <- DESeq(dds)
+    }
+    sub_res[[celltype]] <- lfcShrink(dds, coef=2, type=params$shrinkage_type, format="DataFrame") %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column('gene_name') %>%
+      mutate(cell_type=celltype, contrast = comparison)
+  }
+  res[[comparison]] <- do.call("rbind", sub_res) %>%
+  tibble::remove_rownames()
+}
+
+
+res_df <- do.call("rbind", res) %>%
+  tibble::remove_rownames()
+
+```
+
+
+
+```{r volc1, fig.width=13,fig.height=22}
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%                  
+    dplyr::filter(!is.na(padj), contrast == comparison) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .05)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison,padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2, scales = "free")
+  print(p)
+  
+}
+```
+
+```{r ma100, fig.width=9,fig.height=9}
+# for (comparison in unique(res_df$contrast)){
+#   p <- res_df %>%
+#     dplyr::filter(contrast == comparison) %>%
+#     ggplot(aes(x=baseMean,y=log2FoldChange,color=padj < .05)) +
+#     geom_point(size=.5, shape=1) +
+#     geom_label_repel(data=res_df %>%
+#                        dplyr::filter(contrast == comparison, padj < .05),
+#                      aes(label=gene_name),
+#                      segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=30,
+#                      label.padding=0.05,label.size=NA) +
+#     scale_color_manual(values=c('black','red')) +
+#     scale_x_continuous(trans='log10') +
+#     coord_cartesian(ylim =c(-4,4)) +
+#     theme_classic() +
+#     theme(legend.position='none',
+#           strip.background=element_blank())+
+#     ggtitle(comparison)+
+#     facet_wrap(~cell_type, ncol = 2)
+#   print(p)
+# }
+```
+
+```{r res stats100, fig.width=7,fig.height=6}
+
+res_df %>%
+  dplyr::arrange(padj) %>%
+  dplyr::filter(!is.na(padj) & (padj < .05)) %>%
+  dplyr::mutate_if(is.numeric, signif, 2) %>%
+  DT::datatable(rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+
+dir.create("results_list_211223", recursive=F, showWarnings = F)
+write.table(res_df,"results_list_211223/de_results_separate_analysis.tsv", quote=F, sep="\t",row.names = F)
+```
+
+
+
+```{r add pathways, fig.width=25,fig.height=20}
+library(tmod)
+# data(tmod)
+# 
+# library(orthomapper)
+# mousehum <- orthologs(10090, 9606)
+# mousehum$h_symbol <- entrez_annotate(mousehum$T.9606)$SYMBOL
+# mousehum$m_symbol <- entrez_annotate(mousehum$T.10090)$SYMBOL
+# 
+# mousehum <- mousehum[order(mousehum$h_symbol),]
+# rows_tmod <- which(mousehum$h_symbol %in% tmod$gv)
+# mgenes <- mousehum$m_symbol[rows_tmod]
+# 
+# list_tmod <- sapply(tmod$gs2gv, function(x) tmod$gv[x] )
+# list_tmod <- sapply(list_tmod, function(x) x[order(x)])
+# list_tmod <- sapply(list_tmod, function(x) x[which(x %in%  mousehum$h_symbol)])
+# list_tmod <- sapply(list_tmod, function(x) mousehum[which(mousehum$h_symbol %in% x), "m_symbol"])
+# list_tmod <- sapply(list_tmod, function(x) which(mgenes %in% x))
+# 
+# tmod_mm <- tmod
+# 
+# tmod_mm$gv <- mgenes
+# tmod_mm$gs2gv <- list_tmod
+
+# save tmod mouse object
+# saveRDS(tmod_mm, "tmod_mm.rds")
+tmod_mm <- readRDS("tmod_mm.rds")
+
+df2tmod <- function(df, gene_id_col=ncol(df), module_id_col=1, module_title_col=2) {
+
+  require(tmod, quietly=TRUE)
+
+  gene_ids <- df[[gene_id_col]]
+  module_ids <- df[[module_id_col]]
+  m2g <- tapply(gene_ids, module_ids, list)
+  df[[gene_id_col]] <- NULL
+  df <- df[!duplicated(df[[module_id_col]]), ]
+  colnames(df)[module_id_col] <- "ID"
+  colnames(df)[module_title_col] <- "Title"
+
+  makeTmod(modules=df, modules2genes=m2g)
+}
+
+df <- as.data.frame(msigdbr::msigdbr(species='Mus musculus'))
+df <- df[ , c("gs_name", "gs_id", "gs_cat", "gs_subcat", "gene_symbol") ]
+colnames(df) <- c("Title", "ID", "Category", "Subcategory", "GeneID")
+msig <- df2tmod(df[!is.na(df$GeneID),], gene_id_col=ncol(df), module_id_col=2, module_title_col=1)
+sel <- (msig$gs$Category %in% c("H"))  | (msig$gs$Subcategory %in% c('CP:REACTOME','GO:BP','CP:KEGG'))
+
+```
+
+```{r run tmod, fig.width=22,fig.height=18}
+
+
+res <- split(res_df, f = res_df$contrast)
+contrasts <- names(res)
+
+plot_panels <- function(contrast){
+  # contrast <- contrasts[2]
+  l <- split(res[[contrast]], f=res[[contrast]]$cell_type)
+  genes <- lapply(l, function(x) x %>%
+                    filter(!is.na(padj)) %>%
+                    arrange(pvalue))
+  lgenes <- lapply(genes, function(x) x$gene_name)
+  res.tmod <- lapply(lgenes, tmodCERNOtest, mset = msig[sel])
+  
+  
+  sgenes <- sapply(l, function(x) tmodDecideTests(x$gene_name, lfc = x$log2FoldChange,
+                                                  pval = x$padj, lfc.thr=0, pval.thr = 0.05, mset = msig[sel]))
+  names(sgenes) <- names(l)
+  
+  
+  keep_results <- names(res.tmod)[sapply(res.tmod, function(x) x %>% filter(adj.P.Val<1e-8 , AUC >0.7)%>% nrow() >0)]
+  relevant_results <- res.tmod[keep_results]
+  
+  if(length(relevant_results)>0){
+    sgenes <- sgenes[names(relevant_results)]
+    p <- ggPanelplot(relevant_results, sgenes = sgenes, auc_thr = 0,
+                     q_thr = 1,
+                     filter_row_q = 1e-8,
+                     filter_row_auc = 0.7,
+                     q_cutoff = 1e-12) + 
+      ggtitle(contrast)
+    print(p)
+  }
+}
+
+lapply(contrasts, plot_panels)
+```
+
+```{r run tmod mm, fig.width=22,fig.height=18}
+res <- split(res_df, f = res_df$contrast)
+contrasts <- names(res)
+
+plot_panels <- function(contrast){
+  # contrast <- contrasts[2]
+  l <- split(res[[contrast]], f=res[[contrast]]$cell_type)
+  genes <- lapply(l, function(x) x %>%
+                    filter(!is.na(padj)) %>%
+                    arrange(pvalue))
+  lgenes <- lapply(genes, function(x) x$gene_name)
+  res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
+  
+  
+  sgenes <- sapply(l, function(x) tmodDecideTests(x$gene_name, lfc = x$log2FoldChange,
+                                                  pval = x$padj, lfc.thr=0, pval.thr = 0.05, mset = tmod_mm))
+  names(sgenes) <- names(l)
+  
+  
+  keep_results <- names(res.tmod)[sapply(res.tmod, function(x) x %>% filter(adj.P.Val<1e-8 , AUC >0.7)%>% nrow() >0)]
+  relevant_results <- res.tmod[keep_results]
+  
+  if(length(relevant_results)>0){
+    sgenes <- sgenes[names(relevant_results)]
+    p <- ggPanelplot(relevant_results, sgenes = sgenes, auc_thr = 0,
+                     q_thr = 1,
+                     filter_row_q = 1e-8,
+                     filter_row_auc = 0.7,
+                     q_cutoff = 1e-12) + 
+      ggtitle(contrast)
+    print(p)
+  }
+}
+
+lapply(contrasts, plot_panels)
+```
+
+
+
+```{r session}
+
+sessionInfo()
+
+```
+
+

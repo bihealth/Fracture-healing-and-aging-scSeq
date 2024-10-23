@@ -1,0 +1,554 @@
+---
+title: "Cell composition"
+author: "Mireille Ngokingha Tchouto"
+date: "2024-02-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#install.packages("httr")
+#install.packages("scater")
+#remotes::install_github("mojaveazure/seurat-disk")
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+  #install.packages("BiocManager")
+
+#BiocManager::install("biomaRt")
+#BiocManager::install('multtest')
+#BiocManager::install('limma')
+#install.packages('metap')
+#BiocManager::install("scater")
+#BiocManager::install("dittoSeq")
+#options(connectionObserver = NULL)
+library(magrittr)
+library(pheatmap)
+library(tibble)
+library(scater)
+library(httr)
+library(Seurat)
+library(SeuratDisk)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(cowplot)
+library(igraph)
+library(Matrix)
+library(tidyr)
+library(tidyverse)
+library(RCurl)
+library(plyr)
+library(DESeq2)
+library(plyr)
+library(gtools)
+#library("scDblFinder")
+#library(scRepertoire)
+library(biomaRt)
+#library(metap)
+library(AnnotationHub)
+# library(ensembldb)
+#library(Matrix.utils)
+#library(dittoSeq)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+#library(magrittr)
+library(SingleR)
+#library(reshape2)
+#library(S4Vectors)
+library(tibble)
+library(SingleCellExperiment)
+library(scran)
+#library(pheatmap)
+library(apeglm)
+#library(png)
+library(ashr)
+#library(DropletUtils)
+library(sctransform)
+library(RColorBrewer)
+library(BiocParallel)
+library(extrafont)
+library(Rttf2pt1) # v1.3.8 or lower
+# font_import(paths="/mnt/c/Windows/Fonts", pattern="arial", prompt=F)
+loadfonts(device = "all")
+```
+load seurat object
+```{r}
+sobj <-readRDS(file ="../data//sobj_group_force_final_version.rds")
+```
+
+Renaming the Age group
+```{r}
+sobj$Age_raw<-NULL
+Idents(sobj)<-sobj$age_strain
+new.cluster.ids <- c("Young","Immune-aged","Aged")
+names(new.cluster.ids) <- levels(sobj)
+sobj <- RenameIdents(sobj, new.cluster.ids)
+sobj$Age_raw<-Idents(sobj)
+```
+Manual annotation cellranger count
+```{r}
+Idents(sobj)<-sobj$seurat_clusters
+new.cluster.ids <- c( "Monocytes", "Neutrophils", "Myeloid Precursor", "Monocytes", "Eosinophils",
+                      "Monocytes", "Dendritic Cells", "Neutrophils", "Myeloid Precursor", "Myeloid Precursor",
+                      "Myeloid Precursor", "T Cells", "Neutrophils", 
+                      "B Cells","Monocytes", "B Cells","HPCs","Monocytes","T Cells","Neutrophils","Monocytes", "Monocytes","NK Cells","Basophils","Monocytes","HPCs","Erythroblast","B Cells","Eosinophils","Monocytes","Plasma Cells")
+
+names(new.cluster.ids) <- levels(sobj)
+sobj <- RenameIdents(sobj, new.cluster.ids)
+sobj$CellTypes<-Idents(sobj)
+```
+
+dotplot paper
+
+```{r, fig.width = 4, fig.height = 3}
+features <- c("Cd34","Kit","Flt3","Cd79a","Ebf1","Cd19","Igha","Ighm","Cd3g","Klrd1","Siglech","Csf1r", "Mpo","Elane","S100a8","Hbb-bt","Gata1","Ms4a2","Snhg9")
+DefaultAssay(sobj) <- "RNA"
+sobj$CellTypes<- factor(sobj$CellTypes, levels = c("HPCs","B Cells", "Plasma Cells", "T Cells","NK Cells","Dendritic Cells","Monocytes","Myeloid Precursor","Neutrophils","Erythroblast","Basophils","Eosinophils"))
+Idents(sobj)<-sobj$CellTypes
+d <-DotPlot(sobj, features = features, dot.scale=2.5)+ 
+  scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) + 
+  theme(text = element_text(family = "Arial"),
+        axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+        axis.text.y=element_text(size=8),
+        strip.text.x = element_text(size = 8),#for facet wrap
+        strip.placement = "outside",
+        axis.title = element_text(size=8,face="bold"),
+        axis.title.y.right = element_text(size = 8),
+        legend.text=element_text(size=8),
+        legend.position = "top",
+        legend.title=element_text(hjust = 2,size=8),
+        legend.direction = "vertical",
+        legend.key.height = unit(.1,"in"),
+        axis.line = element_line(size=1)) +
+        labs(x = c(), y = c())
+d
+
+
+
+
+```
+Umap all cells
+```{r, fig.width =4, fig.height = 3}
+DefaultAssay(sobj) <- "RNA"
+
+arr <- list(x = -15, y = -15, x_len = 2.5, y_len = 5)
+u<-DimPlot(sobj,reduction = 'umap',group.by = "CellTypes",label.size=.5,pt.size=.1)  + 
+   geom_text(x=-15.5, y=-13, label="UMAP1", angle=90,size=1.5)+
+   geom_text(x=-13.5, y=-16, label="UMAP2", angle=0,size=1.5)+
+   theme(text = element_text(family = "Arial"),
+        plot.title = element_blank(),
+                     axis.title = element_text(size = 8), 
+                     axis.text = element_text(size = 8),
+                     axis.text.x = element_text(size = 8),
+                     legend.text = element_text(size = 8),
+                     legend.title = element_blank(),
+                     strip.text.x = element_text(size = 8),
+        legend.key.width = unit(.05,"in"),
+        legend.key.height = unit(.15,"in"),
+        legend.position = "top") + NoAxes() +
+  guides(colour=guide_legend(ncol=3,override.aes = list(size=2)))+
+  annotate("segment", 
+           x = arr$x, xend = arr$x + c(arr$x_len, 0), 
+           y = arr$y, yend = arr$y + c(0, arr$y_len), 
+           arrow = arrow(type = "closed", length = unit(5, 'pt')))
+u
+```
+
+B cells rna
+```{r, fig.width = 5, fig.height = 5}
+DefaultAssay(sobj) <- "RNA"
+f1<-sobj %>%
+  FeaturePlot(features=c("Cd19"),cols = c("lightgrey", "darkred"))+ theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size=8,face="bold"),
+        legend.text=element_text(size=8),
+        legend.position = "right",
+        legend.title=element_text(size=8)) + labs(title = "Cd19\nRNA Expression") & NoAxes()
+f1
+```
+B cells antibody 
+```{r, fig.width = 5, fig.height = 5}
+DefaultAssay(sobj) <- "Antibody.Capture"
+
+f2<-sobj %>%
+  FeaturePlot(features=c("Cd19"),cols = c("lightgrey", "darkred")) + theme(text = element_text(family = "Arial"),
+                                                                                  plot.title = element_text(size = 8),
+        axis.title = element_text(size=8,face="bold"),
+        legend.text=element_text(size=8),
+        legend.position = "right",
+        legend.title=element_text(size=8)) + labs(title = "Cd19\nAntibody Capture") & NoAxes()
+f2
+```
+T cells RNA
+```{r, fig.width = 5, fig.height = 5}
+DefaultAssay(sobj) <- "RNA"
+f3<-sobj %>%
+  FeaturePlot(features=c("Cd3g"),cols = c("lightgrey", "darkred")) + theme(text = element_text(family = "Arial"),
+                                                                           plot.title = element_text(size = 8),
+        axis.title = element_text(size=8,face="bold"),
+        legend.text=element_text(size=8),
+        legend.position = "right",
+        legend.title=element_text(size=8))+ labs(title = "Cd3\nRNA Expression",) & NoAxes()
+```
+T cells antibody
+```{r, fig.width = 5, fig.height = 5}
+DefaultAssay(sobj) <- "Antibody.Capture"
+
+f4<-sobj %>%
+  FeaturePlot(features=c("CD3"),cols = c("lightgrey", "darkred")) + theme(text = element_text(family = "Arial"),
+                                                                          plot.title = element_text(size = 8),
+        axis.title = element_text(size=8,face="bold"),
+        legend.text=element_text(size=8),
+        legend.position = "right",
+        legend.title=element_text(size=8)) + labs(title = "Cd3\nAntibody Capture") & NoAxes()
+```
+
+```{r, fig.width =8, fig.height = 9.5}
+library(patchwork)
+
+library(magick)
+
+path<-"/mnt/d/onedrive/OneDrive - Charité - Universitätsmedizin Berlin/Third version/Figures/Fig1A_correct.svg"
+fig1A <- image_read(path)
+# place image under plot
+
+a <- ggdraw() + 
+  draw_image(fig1A,hjust=.05,vjust=0.55,width=1,height=1, scale=2.5) 
+a
+
+# ((a/u) | d) +  plot_annotation(tag_levels = 'A') & 
+#   theme(plot.tag = element_text(size = 8,face = "bold"))
+
+
+(a/(u | d)) +  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 8,face = "bold"))
+
+(a/(u | d ) / (f1|f2|f3|f4 )) + plot_layout(heights =c(1,.7,.4))+plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 8,face = "bold"))
+
+ggsave("/mnt/d/work/mireille/tmp/fig1.pdf", device = cairo_pdf, units="in", width=8, height=9.5)
+```
+
+
+
+Adding Figure 1.A
+```{r}
+#install.packages("magick")
+library(magick)
+
+path<-"/mnt/d/onedrive/OneDrive - Charité - Universitätsmedizin Berlin/Third version/Figures/Fig1A_correct.svg"
+fig1A <- image_read(path)
+# place image under plot
+a <- ggdraw() + 
+  draw_image(fig1A, scale = 1) 
+a
+```
+
+Figure 1 paper
+```{r, fig.width = 7, fig.height = 9.5}
+library(patchwork)
+(u|d) / (f1|f2) / (f3|f4) + plot_annotation(tag_levels = 'A')
+((a/d)|u) / (f1|f2)
+(a|u)
+a / (u|d) / (f1|f2) / (f3|f4) + plot_annotation(tag_levels = 'A')
+ggsave("/mnt/d/work/mireille/tmp/fig1.pdf", device = cairo_pdf, units="in", width=7, height=9.5)
+```
+
+Generating supplement figure 1
+
+```{r, fig.width = 12, fig.height = 8}
+features <- list("Hematopoietic precursor cell" = c("Cd34","Kit","Flt3"),"B cell" = c("Cd79a","Ebf1","Cd19"), "Plasma Cells" = c("Igha","Ighm"), "T cell" = c("Cd3g","Cd3e"),"NK cells"=c("Klrd1"), "DC" = "Siglech", "Monocyte" = c("Csf1r"), "Myeloid" = c("Mpo","Elane"),  "Neutrophils"="S100a8","Erythroblast "= c("Hbb-bt","Gata1"),"Basophil"="Ms4a2", "Eosinophil"="Snhg9")
+
+DefaultAssay(sobj) <- "RNA"
+Idents(sobj)<-sobj$seurat_clusters
+SF1_1 <-DotPlot(sobj, features = features)+ scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) + theme(text = element_text(family = "Arial"),
+        axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+        axis.text.y=element_text(size=8),
+        strip.text.x = element_text(size = 8),#for facet wrap
+        strip.placement = "down",
+        axis.title = element_text(size=8,face="bold"),
+        axis.title.y.right = element_text(size = 8),
+        legend.text=element_text(size=8),
+        legend.position = "top",
+        legend.title=element_text(size=8),
+        axis.line = element_line(size=1)) +
+labs(x = c(), y = 'CellTypes')
+SF1_1
+```
+
+Show distributions of label transfer scores. 
+```{r score of label transfer, fig.width=12,fig.height=7}
+
+cols <- colnames(sobj[[]])[grepl("predict", colnames(sobj[[]]))]
+
+SF1_2 <-sobj[[]] %>%
+  tibble::rownames_to_column("cells") %>%
+    select(all_of(c("cells", cols))) %>%
+  mutate(cell_id = paste0(cells, "_", predicted.id)) %>%
+  select(-cells, -predicted.id) %>%
+  pivot_longer(-cell_id, values_to = "score") %>%
+  group_by(cell_id) %>%
+  summarise(max_score = max(score)) %>%
+  mutate(cell_type = sub(".*_", "", cell_id)) %>%
+  ggplot(aes(cell_type, max_score, fill = cell_type)) + 
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle=90, hjust=1,vjust=.5))
+
+```
+Pca plot 
+```{r, fig.width = 7, fig.height=10}
+# Transform counts for data visualization
+library(DESeq2)
+#rld <- vst(dds)
+#rld <- rlog(dds, blind=TRUE)
+#rld.sub <- rld[,c(1:17)]# just fx
+rld.sub <- rld[,-c(24)]# remove the two outliers
+SF1_3 <- DESeq2::plotPCA(rld.sub, intgroup = c("strain","time"))
+plotPCA(rld.sub, intgroup='strain')
+plotPCA(rld.sub, intgroup='time')
+plotPCA(rld.sub, intgroup='group')
+```
+Plotting Hashtag in umap
+```{r}
+DefaultAssay(sobj) <- "HTO"
+sobj <- ScaleData(sobj, features = row.names(sobj), 
+                  verbose = FALSE) %>%
+  RunPCA(features = rownames(.), approx = FALSE) %>%
+  FindNeighbors(dims=1:length(unique(sample_df$multiplex)), verbose=FALSE) %>%
+  RunUMAP(dims=1:length(unique(sample_df$multiplex)), verbose=FALSE, reduction.name='HTOumap') 
+
+DimPlot(sobj, group.by='hash.ID', reduction='HTOumap')
+```
+
+
+Supplement Figure 1 paper
+```{r, fig.width = 14, fig.height = 14}
+SF1_1 / (SF1_2 + SF1_3) + 
+  plot_annotation(tag_levels = 'A')
+ggsave("C:/Users/Administrator/Documents/Scripts/Cell_proportion/Figures paper/second version/SFig1.pdf", device = cairo_pdf) 
+```
+
+
+boxplot of cell composition of b cells per age and tissue compartment
+```{r, fig.width = 15, fig.height = 3}
+library(ggpubr)
+########################## proximal########################
+my_comparisons <- list(c("2days", "5days"))
+df = sobj@meta.data %>%  dplyr::group_by(sample, timepoint,Age_raw,compartments,CellTypes,.drop = FALSE) %>%
+  filter(compartments != 'Dist',  compartments != 'Hematoma') %>%
+  #filter(Age_raw != 'Aged',  Age_raw != 'ImmunoAged') %>%
+  dplyr::summarize(n = n()) 
+  #ungroup() 
+  #group_by(sample) 
+df_final= df %>% mutate(n=ifelse(is.na(n), 0, n)) %>% mutate(p =n/sum(n)*100) %>% filter(CellTypes %in% c("B Cells")) %>% #filter(Age_raw != 'Aged',  Age_raw != 'ImmunoAged') %>%
+  #mutate(compartments=factor(compartments, levels=c("Prox", "Hematoma", "Dist"))) %>%
+  mutate(Age_raw=factor(Age_raw, levels=c("Young", "Aged", "Immunoaged")))
+
+s1<-ggplot(df_final, aes(x = timepoint, y = p)) + #geom_boxplot(size = .8, outlier.size = 0) + 
+  stat_boxplot(aes(ymin = after_stat(ymin), ymax = after_stat(ymax)), geom="errorbar", width=.15) + 
+  stat_boxplot(aes(ymin = after_stat(middle), ymax = after_stat(middle)), geom="errorbar",colour='grey30', linewidth=1, width=.30)  + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape=1, size=5) +
+  facet_wrap(~Age_raw, ncol = 9, scales = "free_x") +  ylim(0, 20.) +
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                  method = "t.test",label.y = 18, hide.ns = TRUE) +
+  #stat_compare_means(method = "t.test",hide.ns = TRUE,tip.length = 0,size = 5.1167) +
+  #theme_classic() + 
+theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        #strip.background = element_blank(),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold", hjust = 0.5,),
+      legend.position = "none")+
+     scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + labs(title ="Proximal",x = c(color =''), y = 'Percentage of cells') 
+
+########################### Hematoma ##########################
+df = sobj@meta.data %>%  dplyr::group_by(sample, timepoint,Age_raw,compartments,CellTypes,.drop = FALSE) %>%
+  filter(compartments != 'Dist',  compartments != 'Prox') %>%
+  dplyr::summarize(n = n()) 
+
+df_final= df %>% mutate(n=ifelse(is.na(n), 0, n)) %>% mutate(p =n/sum(n)*100) %>% filter(CellTypes %in% c("B Cells")) %>%
+  mutate(Age_raw=factor(Age_raw, levels=c("Young", "Aged", "Immunoaged")))
+
+s2<-ggplot(df_final, aes(x = timepoint, y = p)) + #geom_boxplot(size = .8, outlier.size = 0) + 
+  stat_boxplot(aes(ymin = after_stat(ymin), ymax = after_stat(ymax)), geom="errorbar", width=.15) + 
+  stat_boxplot(aes(ymin = after_stat(middle), ymax = after_stat(middle)), geom="errorbar",colour='grey30', linewidth=1, width=.30)  + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape=1, size=5) +
+  facet_wrap(~Age_raw, ncol = 9, scales = "free_x") +  ylim(0, 20.) +
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                  method = "t.test",label.y = 19., hide.ns = TRUE) +
+theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        #strip.background = element_blank(),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold", hjust = 0.5,),
+      legend.position = "none")+
+     scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + labs(title ="Hematoma",x = c(color =''), y = 'Percentage of cells') 
+
+############################# Distal ###########################
+df = sobj@meta.data %>%  dplyr::group_by(sample, timepoint,Age_raw,compartment,CellTypes,.drop = FALSE) %>%
+  filter(compartments != 'Hematoma',  compartments != 'Prox') %>%
+  dplyr::summarize(n = n()) 
+
+df_final= df %>% mutate(n=ifelse(is.na(n), 0, n)) %>% mutate(p =n/sum(n)*100) %>% filter(CellTypes %in% c("B Cells")) %>%
+  mutate(Age_raw=factor(Age_raw, levels=c("Young", "Aged", "Immunoaged")))
+
+s3<-ggplot(df_final, aes(x = timepoint, y = p)) + #geom_boxplot(size = .8, outlier.size = 0) + 
+  stat_boxplot(aes(ymin = after_stat(ymin), ymax = after_stat(ymax)), geom="errorbar", width=.15) + 
+  stat_boxplot(aes(ymin = after_stat(middle), ymax = after_stat(middle)), geom="errorbar",colour='grey30', linewidth=1, width=.30)  + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape=1, size=5) +
+  facet_wrap(~Age_raw, ncol = 9, scales = "free_x") +  ylim(0, 20.) +
+theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        #strip.background = element_blank(),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold", hjust = 0.5,))+
+     scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + labs(title ="Distal", x = c(color =''), y = 'Percentage of cells') 
+```
+Table hematoma immunoaged B cells figure 2
+```{r, fig.width = 3, fig.height = 4}
+df = sobj@meta.data %>%  dplyr::group_by(sample, timepoint,age_strain,compartment,CellTypes,.drop = FALSE) %>%
+  dplyr::summarize(Cell_number = n()) 
+df_final= df %>% mutate(Cell_number=ifelse(is.na(Cell_number), 0, Cell_number)) %>% mutate(p = round(Cell_number/sum(Cell_number)*100, digits = 2)) %>% filter(CellTypes==c("B Cells")) %>%
+  filter(compartment == "fx") %>% filter(age_strain == "26w_nonSPF")
+t <- ggtexttable(df_final[5:6]) 
+```
+
+Umap 2 days and 5 days B cells
+```{r, fig.width = 3, fig.height = 4}
+
+################### 2 days ##################################
+DefaultAssay(sobj) <- "RNA"
+Idents(sobj)<-sobj$timepoint
+testdata <-subset(sobj, idents = c("2days"))
+Idents(testdata)<-testdata$compartments
+test <-subset(testdata, idents = c("Hematoma"))
+Idents(test)<-test$Age_raw
+Immunoaged <- subset(test, idents = c("Immunoaged"))
+Idents(Immunoaged)<-Immunoaged$CellTypes
+g1_untreat <- WhichCells(Immunoaged, idents = c("B Cells"))
+p3 <- DimPlot(Immunoaged, label=F, group.by="CellTypes", cells.highlight= list(g1_untreat))+ theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,face="bold"),
+                     axis.title = element_text(size = 8), 
+                     axis.text = element_text(size = 8),
+                     axis.text.x = element_text(size = 8),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_text(size = 8),
+        legend.position = "top",
+        legend.justification = "center") + labs(title = "Immunoaged: hematoma, 2 days") + 
+  scale_color_discrete(
+    labels = c("Unselected" = "All Cells", 
+               "Group_1" = "B Cells"),type=c("grey","dodgerblue3"))  & NoAxes()
+
+######################## 5 days hematoma ######################
+Idents(sobj)<-sobj$timepoint
+testdata <-subset(sobj, idents = c("5days"))
+Idents(testdata)<-testdata$compartments
+test <-subset(testdata, idents = c("Hematoma"))
+Idents(test)<-test$Age_raw
+Immunoaged <- subset(test, idents = c("Immunoaged"))
+Idents(Immunoaged)<-Immunoaged$CellTypes
+g1_untreat <- WhichCells(Immunoaged, idents = c("B Cells"))
+p4 <- DimPlot(Immunoaged, label=F, group.by="CellTypes", cells.highlight= list(g1_untreat))+ theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,face="bold"),
+                     axis.title = element_text(size = 8), 
+                     axis.text = element_text(size = 8),
+                     axis.text.x = element_text(size = 8),
+                     legend.text = element_text(size =8),
+                     legend.title = element_text(size = 8),
+                     strip.text.x = element_text(size = 8),
+        legend.position = "top",
+        legend.justification = "center") + labs(title = "Immunoaged: hematoma, 5 days") + 
+  scale_color_discrete(
+    labels = c("Unselected" = "All Cells", 
+               "Group_1" = "B Cells"),type=c("grey","orange2"))  & NoAxes()
+```
+Figure 2 paper
+```{r, fig.width = 12, fig.height = 11}
+library(patchwork)
+s1 + s3 + s2 + t +  p3 + p4 +
+  plot_annotation(tag_levels = 'A') + plot_layout(ncol = 2)
+ggsave("C:/Users/Administrator/Documents/Scripts/Cell_proportion/Figures paper/second version/Figure2.pdf", device = cairo_pdf) 
+```
+supplement figure 2
+
+boxplot of cell composition all cells immunoaged proximal, hematoma
+```{r, fig.width = 15, fig.height = 3}
+library(ggpubr)
+########################## proximal########################
+my_comparisons <- list(c("2days", "5days"))
+df = sobj@meta.data %>%  dplyr::group_by(sample, timepoint,Age_raw,compartments,CellTypes,.drop = FALSE) %>%
+  filter(compartments != 'Dist',  compartments != 'Hematoma') %>%
+  filter(Age_raw != 'Aged',  Age_raw != 'Young') %>%
+  dplyr::summarize(n = n()) 
+  #ungroup() 
+  #group_by(sample) 
+df_final= df %>% mutate(n=ifelse(is.na(n), 0, n)) %>% mutate(p =n/sum(n)*100) %>% filter(CellTypes %in% c("Hematopoietic precursor cell","Myeloid Precursor","Monocytes","Neutrophils","Plasma Cells","T Cells","NK Cells" ,"Dendritic Cells")) 
+  
+sF1<-ggplot(df_final, aes(x = timepoint, y = p)) + #geom_boxplot(size = .8, outlier.size = 0) + 
+  stat_boxplot(aes(ymin = after_stat(ymin), ymax = after_stat(ymax)), geom="errorbar", width=.15) + 
+  stat_boxplot(aes(ymin = after_stat(middle), ymax = after_stat(middle)), geom="errorbar",colour='grey30', linewidth=1, width=.30)  + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape=1, size=5) +
+  facet_wrap(~CellTypes, ncol = 8, scales = "free_x") +
+  #theme_classic() + 
+theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        #strip.background = element_blank(),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold", hjust = 0.5,),
+      legend.position = "none")+
+     scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + labs(title ="Proximal",x = c(color =''), y = 'Percentage of cells') 
+
+
+########################### Hematoma ##########################
+df = sobj@meta.data %>%  dplyr::group_by(sample, timepoint,Age_raw,compartments,CellTypes,.drop = FALSE) %>%
+  filter(compartments != 'Dist',  compartments != 'Prox') %>%
+   filter(Age_raw != 'Aged',  Age_raw != 'Young') %>%
+  dplyr::summarize(n = n()) 
+
+df_final= df %>% mutate(n=ifelse(is.na(n), 0, n)) %>% mutate(p =n/sum(n)*100) %>% filter(CellTypes %in% c("Hematopoietic precursor cell","Myeloid Precursor","Monocytes","Neutrophils","Plasma Cells","T Cells","NK Cells" ,"Dendritic Cells")) 
+
+sF2<-ggplot(df_final, aes(x = timepoint, y = p)) + #geom_boxplot(size = .8, outlier.size = 0) + 
+  stat_boxplot(aes(ymin = after_stat(ymin), ymax = after_stat(ymax)), geom="errorbar", width=.15) + 
+  stat_boxplot(aes(ymin = after_stat(middle), ymax = after_stat(middle)), geom="errorbar",colour='grey30', linewidth=1, width=.30)  + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape=1, size=5) +
+  facet_wrap(~CellTypes, ncol = 8, scales = "free_x")  +
+theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        #strip.background = element_blank(),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold", hjust = 0.5,),
+      legend.position = "none")+
+     scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + labs(title ="Hematoma",x = c(color =''), y = 'Percentage of cells') 
+
+```
+
+SFigure 2 paper
+```{r, fig.width = 14, fig.height = 11}
+library(patchwork)
+sF1 + sF2  +
+  plot_annotation(tag_levels = 'A') + plot_layout(ncol = 1)
+ggsave("C:/Users/Administrator/Documents/Scripts/Cell_proportion/Figures paper/second version/SFig2.pdf", device = cairo_pdf) 
+```
+```{r sessionInfo}
+sessionInfo()
+```

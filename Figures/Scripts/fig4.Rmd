@@ -1,0 +1,622 @@
+---
+author: "Mireille Ngokingha Tchouto and Miha Milek"
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+params:
+  title: "Bone healing Fig 4"
+  object: "Figures/data/HSC_pseudotime_correct.rds"
+  git_path: "/mnt/d/work/mireille/fracture-healing-and-aging-scseq"
+  figure_out_path: "/mnt/d/onedrive/OneDrive - Charité - Universitätsmedizin Berlin/Third version/Figures/redone/"
+---
+
+```{r setup, include=FALSE}
+library(slingshot)
+library(magrittr)
+library(pheatmap)
+library(tibble)
+library(scater)
+library(httr)
+library(Seurat)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(cowplot)
+library(igraph)
+library(Matrix)
+library(tidyr)
+library(tidyverse)
+library(RCurl)
+library(plyr)
+library(DESeq2)
+library(plyr)
+library(gtools)
+library(biomaRt)
+library(AnnotationHub)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(SingleR)
+library(tibble)
+library(SingleCellExperiment)
+library(scran)
+library(apeglm)
+library(ashr)
+library(sctransform)
+library(RColorBrewer)
+library(BiocParallel)
+library(extrafont)
+library(Rttf2pt1) # v1.3.8 or lower
+# font_import(paths="/mnt/c/Windows/Fonts", pattern="arial", prompt=F)
+loadfonts(device = "all")
+library(patchwork)
+library(magick)
+library(ggpubr)
+```
+
+```{r paths}
+
+git_path <- params$git_path
+
+figure_out_path <- params$figure_out_path
+
+dir.create(figure_out_path, showWarnings = F, recursive = T)
+
+``` 
+
+Figure 4.
+Data input. This is the final object after the slingshot analysis. For documentation of Slingshot analysis, look at Scripts/slingshot.Rmd
+
+```{r input, fig.width = 10, fig.height = 5}
+
+sub <- readRDS(file.path(git_path, params$object))
+
+```
+
+
+Rename HPC cluster.
+```{r rename}
+
+Idents(sub)<-sub$seurat_clusters
+new.cluster.ids <- c( "Immature B Cells", "Mature B Cells", "HPCs", "Immature B Cells",
+                      "HPCs","HPCs", "Pre / Pro B Cells", "HPCs", "Pre / Pro B Cells")
+names(new.cluster.ids) <- levels(sub)
+sub <- RenameIdents(sub, new.cluster.ids)
+sub$CellType<-Idents(sub)
+```
+
+Dotplot figure 4.
+
+```{r dotplot, fig.width = 8/3, fig.height = 3}
+features <- c("Cd34","Kit","Flt3","Vpreb1","Igll1","Tnfrsf13c","Cd38","Ly6a","Fcer2a")
+
+sub$CellType<- factor(sub$CellType, levels = c("HPCs","Pre / Pro B Cells", "Immature B Cells", "Mature B Cells"))
+Idents(sub)<-sub$CellType
+
+ps1<-DotPlot(sub, features = features,dot.scale = 2.5) + 
+  scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu")), limits = c(0.0, 1.5)) +
+  guides(colour=guide_colorbar(title="Avg.Expr."),
+         size=guide_legend(title="% Expr."))+
+  theme(text = element_text(family = "Arial"),
+        axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+        axis.text.y=element_text(size=8),
+        strip.text.x = element_text(size = 8),#for facet wrap
+        strip.placement = "outside",
+        axis.title = element_text(size=8,face="bold"),
+        axis.title.y.right = element_text(size = 8),
+        legend.text=element_text(size=8),
+        legend.position = "top",
+        legend.title=element_text(size=8),
+        axis.line = element_line(linewidth=1),
+        legend.direction = "vertical",
+        legend.key.height = unit(.1,"in"))+
+  labs(x=c(),y=c())
+
+ps1
+
+```
+
+Umap  visualization of cell types
+```{r umap, fig.width = 8/3, fig.height = 3}
+
+
+ps2_base <-sub %>% 
+  DimPlot(reduction = 'umap',label = F, group.by = "CellType",pt.size = .2) +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,face="bold"),
+        axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text.x = element_text(size = 8),
+        legend.position = "top",
+        legend.direction = "vertical",
+        legend.key.height = unit(.1,"in"))+
+  labs(title=c())+
+  NoAxes()
+
+ps2 <- ps2_base + annotate(geom="segment", x = -13, y = -7, xend = -8.5, yend = -7, 
+                           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = - 13, y = -8,label = "UMAP1", size=3,hjust = "left") +
+  annotate(geom="segment", x = -13, y = -7, xend = -13, yend = -3.5, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = -14, y = -7, angle=90, size=3,label = "UMAP2", hjust = "left") 
+ps2
+```
+
+
+plotting pseudotime umap
+```{r pseudo, fig.width = 8/3, fig.height = 3}
+
+####################### all compartments, timepoints, cell types #########
+DefaultAssay(sub) <- "RNA"
+coul <- colorRampPalette(brewer.pal(8, "Spectral"))(25)
+ps3_base<-FeaturePlot(sub,features = "pseudotime_lin1",reduction = 'umap',pt.size = .2) + 
+  scale_color_viridis_c(option = "plasma") + 
+  guides(colour=guide_colorbar(title="Pseudotime")) +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,face="bold"),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),                                                                        strip.text.x = element_text(size = 8),                                                                        legend.position = "top",
+        legend.justification = "center") + 
+  labs(title = "All groups and celltypes")  + 
+  NoAxes()
+
+ps3 <- ps3_base + annotate(geom="segment", x = -13, y = -7, xend = -8.5, yend = -7, 
+                           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = - 13, y = -8,label = "UMAP1", size=3,hjust = "left") +
+  annotate(geom="segment", x = -13, y = -7, xend = -13, yend = -3.5, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = -14, y = -7, angle=90, size=3,label = "UMAP2", hjust = "left") 
+ps3
+
+
+```
+
+```{r ps4, fig.width=8/3,fig.height=3}
+
+############################ 2 days ###################################
+Idents(sub)<-sub$Age_raw
+testdata <-subset(sub, idents = c("ImmunoAged"))
+Idents(testdata)<-testdata$compartments
+test <-subset(testdata, idents = c("Hematoma"))
+Idents(test)<-test$timepoint
+day2 <-subset(test, idents = c("2days"))
+
+ps4_base<-FeaturePlot(day2,features = "pseudotime_lin1",reduction = 'umap') + 
+  scale_color_viridis_c(option = "plasma") +
+  guides(colour=guide_colorbar(title="Pseudotime")) +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,face="bold"),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text.x = element_text(size = 8),
+        legend.position = "top",
+        legend.justification = "center") + 
+  labs(title = "Immune-aged: hematoma, 2 days") + 
+  NoAxes()
+
+ps4 <- ps4_base + annotate(geom="segment", x = -12, y = -7, xend = -7.5, yend = -7, 
+                           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = - 12, y = -8,label = "UMAP1", size=3,hjust = "left") +
+  annotate(geom="segment", x = -12, y = -7, xend = -12, yend = -3.5, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = -13, y = -7, angle=90, size=3,label = "UMAP2", hjust = "left") 
+ps4
+
+```
+
+
+```{r ps5, fig.width=8/3,fig.height=3}
+
+############################ 5 days ###################################
+Idents(sub)<-sub$Age_raw
+testdata <-subset(sub, idents = c("ImmunoAged"))
+Idents(testdata)<-testdata$compartments
+test <-subset(testdata, idents = c("Hematoma"))
+Idents(test)<-test$timepoint
+day5 <-subset(test, idents = c("5days"))
+
+ps5_base<-FeaturePlot(day5,features = "pseudotime_lin1",reduction = 'umap') + 
+  scale_color_viridis_c(option = "plasma") +
+  guides(colour=guide_colorbar(title="Pseudotime")) +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,face="bold"),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text.x = element_text(size = 8),
+        legend.position = "top",
+        legend.justification = "center") + 
+  labs(title = "Immune-aged: hematoma, 5 days") + 
+  NoAxes()
+
+ps5 <- ps5_base + annotate(geom="segment", x = -13, y = -7, xend = -8.5, yend = -7, 
+                           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = - 13, y = -8,label = "UMAP1", size=3,hjust = "left") +
+  annotate(geom="segment", x = -13, y = -7, xend = -13, yend = -3.5, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = -14, y = -7, angle=90, size=3,label = "UMAP2", hjust = "left") 
+
+ps5
+
+```
+
+Fig4d: boxplot all mouse groups, from HSCs to mature B cells (slingshot)
+```{r fig4f,fig.height=3,fig.width=8/2}
+
+my_comparisons <- list(c("2days", "5days"))
+
+labs <- c("Young"="Young",
+          "Aged"="Aged",
+          "ImmunoAged"="Immune-\naged")
+
+fig4d<- sub[[]] %>%
+  subset(compartments == "Hematoma") %>%
+  select(sample,Age_raw,pseudotime_lin1,compartments,timepoint) %>% 
+  mutate(Age_raw=factor(Age_raw, levels = c("Young", "Aged","ImmunoAged"))) %>%
+  ggplot(aes(timepoint, pseudotime_lin1))+ 
+  geom_boxplot(size = .4, outlier.size = 0) + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape = 1,size = .6) +
+  facet_wrap(~Age_raw, scales="free_x",labeller = as_labeller(labs))+
+  coord_cartesian(ylim=c(0,42))+
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                     method = "wilcox.test",label.y = 37, hide.ns = TRUE) +
+  theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.text = element_text(size =8),
+        legend.position = "top",
+        legend.title=element_text(size=8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
+  scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
+  labs(title ="Hematoma (slingshot)", x = c(color =''), y = 'Pseudotime') 
+
+fig4d
+```
+
+Fig4e: immuneaged over different B cell diff states.
+```{r fig4e,fig.height=3,fig.width=8/2}
+
+my_comparisons <- list(c("2days", "5days"))
+
+labs <- c("HPCs to pre/pro B"="HPCs to \npre/pro B",
+          "pre/pro B to immature B"="pre/pro B to \nimmature B",
+          "immature to mature B"="immature to \nmature B")
+
+fig4e<- sub[[]] %>%
+  filter(compartments == "Hematoma" & Age_raw=="ImmunoAged") %>%
+  mutate(comparison1=ifelse(CellType %in% c("HPCs","Pre / Pro B Cells" ),"HPCs to pre/pro B", NA)) %>% 
+  mutate(comparison2=ifelse(CellType %in% c("Immature B Cells","Pre / Pro B Cells" ),"pre/pro B to immature B", NA)) %>%
+  mutate(comparison3=ifelse(CellType %in% c("Immature B Cells","Mature B Cells" ),"immature to mature B", NA)) %>%
+  select(sample,Age_raw,pseudotime_lin1,compartments,CellType,timepoint,comparison1,comparison2,comparison3) %>% 
+  pivot_longer(cols=c(comparison1,comparison2,comparison3),names_to="comparison",values_to="comparison_class") %>%
+  filter(!is.na(comparison_class))%>%
+  mutate(comparison_class=factor(comparison_class, levels=c("HPCs to pre/pro B","pre/pro B to immature B","immature to mature B"))) %>%
+  ggplot(aes(timepoint, pseudotime_lin1))+ 
+  geom_boxplot(size = .4, outlier.size = 0) + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape = 1,size = .6) +
+  coord_cartesian(ylim=c(0,42))+
+  facet_wrap(~comparison_class, scales="free_x",labeller = as_labeller(labs))+
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                     method = "wilcox.test",label.y = 38, label.x = "5days" , hide.ns = FALSE, size=2) +
+  theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position="top",
+        legend.title=element_text(size=8),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
+  scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
+  labs(title ="Hematoma immune-aged (slingshot)", x = c(color =''), y = 'Pseudotime') 
+
+fig4e
+```
+
+
+Store Figure 4.
+```{r fig4, fig.width =8, fig.height = 9}
+
+(wrap_elements(ps1)  + wrap_elements(ps2) + wrap_elements(ps3)) /  
+  (wrap_elements(fig4d) + wrap_elements(fig4e) ) /
+  (wrap_elements(ps4) + wrap_elements(ps5) ) +
+  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+if (file.exists(file.path(figure_out_path,"fig4.pdf"))){
+  try(ggsave(file.path(figure_out_path,"fig4.pdf"), device = cairo_pdf,width=8,height=9), silent=T)
+  warning("file not written, please close file in the other application and rerun.")
+} else {
+  ggsave(file.path(figure_out_path,"fig4.pdf"), device = cairo_pdf,width=8,height=9)
+}
+
+```
+
+
+
+generating Supplemental figure 4
+
+SFig4a: boxplot all mouse groups, from HSCs to mature B cells (slingshot)
+```{r sf4_1,fig.height=3,fig.width=8/2}
+
+my_comparisons <- list(c("2days", "5days"))
+
+labs <- c("Young"="Young",
+          "Aged"="Aged",
+          "ImmunoAged"="Immune-\naged")
+
+sf4_1<- sub[[]] %>%
+  subset(compartments == "Prox") %>%
+  select(sample,Age_raw,pseudotime_lin1,compartments,timepoint) %>% 
+  mutate(Age_raw=factor(Age_raw, levels = c("Young", "Aged","ImmunoAged"))) %>%
+  ggplot(aes(timepoint, pseudotime_lin1))+ 
+  geom_boxplot(size = .4, outlier.size = 0) + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape = 1,size = .6) +
+  facet_wrap(~Age_raw, scales="free_x",labeller = as_labeller(labs))+
+  coord_cartesian(ylim=c(0,42))+
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                     method = "wilcox.test",label.y = 37, hide.ns = FALSE, size=3) +
+  theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.text = element_text(size =8),
+        legend.position = "top",
+        legend.title=element_text(size=8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
+  scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
+  labs(title ="Pseudotime proximal (slingshot)", x = c(color =''), y = 'Pseudotime') 
+
+sf4_1
+```
+SFig4b: boxplot all mouse groups, from HSCs to mature B cells (slingshot)
+```{r sf4_2,fig.height=3,fig.width=8/2}
+
+my_comparisons <- list(c("2days", "5days"))
+
+labs <- c("Young"="Young",
+          "Aged"="Aged",
+          "ImmunoAged"="Immune-\naged")
+
+sf4_2<- sub[[]] %>%
+  subset(compartments == "Dist") %>%
+  select(sample,Age_raw,pseudotime_lin1,compartments,timepoint) %>% 
+  mutate(Age_raw=factor(Age_raw, levels = c("Young", "Aged","ImmunoAged"))) %>%
+  ggplot(aes(timepoint, pseudotime_lin1))+ 
+  geom_boxplot(size = .4, outlier.size = 0) + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape = 1,size = .6) +
+  facet_wrap(~Age_raw, scales="free_x",labeller = as_labeller(labs))+
+  coord_cartesian(ylim=c(0,42))+
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                     method = "wilcox.test",label.y = 37, hide.ns = FALSE, size=3) +
+  theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.text = element_text(size =8),
+        legend.position = "top",
+        legend.title=element_text(size=8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
+  scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
+  labs(title ="Pseudotime distal (slingshot)", x = c(color =''), y = 'Pseudotime') 
+
+sf4_2
+```
+
+From Pre/pro B cells to immature B cells
+```{r sf33,fig.height=3,fig.width=8/2}
+
+my_comparisons <- list(c("2days", "5days"))
+
+SF3_3<- sub[[]] %>%
+  subset(compartments == "Hematoma") %>%
+  filter(CellType %in% c("Pre / Pro B Cells","Immature B Cells")) %>% 
+  select(sample,Age_raw,pseudotime_lin1,compartments,CellType,timepoint) %>% 
+  mutate(Age_raw=factor(Age_raw, levels = c("Young", "Aged","ImmunoAged"))) %>%
+  ggplot(aes(timepoint, pseudotime_lin1))+ 
+  geom_boxplot(size = .4, outlier.size = 0) + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape = 1,size = .6) +
+  coord_cartesian(ylim=c(0,40))+
+  facet_wrap(~Age_raw, scales="free_x", labeller=as_labeller(labs))+
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                     method = "wilcox.test",label.y = 35, label.x = "5days" , hide.ns = FALSE,size=2) +
+  theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        #strip.background = element_blank(),
+        legend.position="top",
+        legend.title = element_text(size=8),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
+  scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
+  labs(title ="Pseudotime hematoma from Pre / Pro B cells to \nimmature B cells", x = c(color =''), y = 'Pseudotime') 
+
+SF3_3
+
+```
+
+From immature B cells to mature B cells
+```{r sf34,fig.height=3,fig.width=8/2}
+my_comparisons <- list(c("2days", "5days"))
+
+
+SF3_4<- sub[[]] %>%
+  subset(compartments == "Hematoma") %>%
+  filter(CellType %in% c("Immature B Cells","Mature B Cells")) %>% 
+  select(sample,Age_raw,pseudotime_lin1,compartments,CellType,timepoint) %>% 
+  mutate(Age_raw=factor(Age_raw, levels = c("Young", "Aged","ImmunoAged"))) %>%
+  ggplot(aes(timepoint, pseudotime_lin1))+ 
+  geom_boxplot(size = .4, outlier.size = 0) + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape = 1,size = .6) +
+  coord_cartesian(ylim=c(0,42))+
+  facet_wrap(~Age_raw, scales="free_x", labeller = as_labeller(labs))+
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                     method = "wilcox.test",label.y = 38, hide.ns = FALSE, size=3) +
+  theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position = "top",
+        legend.title=element_text(size=8),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
+  scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
+  labs(title ="Pseudotime hematoma from immature to \nmature B cells", x = c(color =''), y = 'Pseudotime') 
+
+SF3_4
+```
+
+
+here we use Monocle3-calculated pseudotime values. for the whole monocle analysis documentation, look at Scripts/monocle.Rmd. Here, we plot the UMAP. 
+
+```{r sf35, fig.width = 8/2, fig.height = 3}
+
+ps <- read.delim(file.path(git_path,"Figures/data/monocle_pseudotime.tsv"), header=T)%>%
+  tibble::column_to_rownames("cell_id")
+
+sub <- AddMetaData(sub, metadata=ps)
+
+coul <- colorRampPalette(brewer.pal(8, "Spectral"))(25)
+
+SF3_5<-FeaturePlot(sub,features = "pseudotime",reduction = 'umap', pt.size = 0.2) + 
+  scale_color_viridis_c(option = "plasma") + 
+  guides(colour=guide_colorbar(title="Pseudotime")) +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8,face="bold"),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        legend.text = element_text(size =8),
+        legend.title = element_text(size = 8),
+        strip.text.x = element_text(size = 8),
+        legend.position = "top",
+        legend.justification = "center") + 
+  labs(title = "All groups and celltypes (Monocle3)") + 
+  NoAxes()
+
+SF3_5
+
+```
+
+boxplot monocle
+```{r sf36,fig.height=3,fig.width=8/2}
+
+my_comparisons <- list(c("2days", "5days"))
+
+labs <- c("Young"="Young","Aged"="Aged", "ImmunoAged"="Immune-aged")
+
+SF3_6<-sub[[]] %>%
+  subset(compartments == "Hematoma") %>%
+  select(sample,Age_raw,pseudotime,compartments,timepoint) %>% 
+  mutate(Age_raw=factor(Age_raw, levels = c("Young", "Aged","ImmunoAged"))) %>%
+  ggplot(aes(timepoint, pseudotime))+ 
+  geom_boxplot(size = .4, outlier.size = 0) + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape = 1,size = .6) +
+  coord_cartesian(ylim=c(0,44))+
+  facet_wrap(~Age_raw, scales="free_x", labeller=as_labeller(labs))+
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                     method = "wilcox.test",label.y = 39, label.x = "5days" , hide.ns = FALSE, size=3) +
+  theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),legend.title = element_text(size=8),
+        legend.text = element_text(size =8),
+        legend.position = "top",
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
+  scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
+  labs(title ="Hematoma (Monocle3)", x = c(color =''), y = 'Pseudotime') 
+
+SF3_6
+```
+
+FigS4e: immuneaged over different B cell diff states.
+```{r sf4e,fig.height=3,fig.width=8/2}
+
+my_comparisons <- list(c("2days", "5days"))
+
+labs <- c("HPCs to pre/pro B"="HPCs to \npre/pro B",
+          "pre/pro B to immature B"="pre/pro B to \nimmature B",
+          "immature to mature B"="immature to \nmature B")
+
+sf4e<- sub[[]] %>%
+  filter(compartments == "Hematoma" & Age_raw=="ImmunoAged") %>%
+  mutate(comparison1=ifelse(CellType %in% c("HPCs","Pre / Pro B Cells" ),"HPCs to pre/pro B", NA)) %>% 
+  mutate(comparison2=ifelse(CellType %in% c("Immature B Cells","Pre / Pro B Cells" ),"pre/pro B to immature B", NA)) %>%
+  mutate(comparison3=ifelse(CellType %in% c("Immature B Cells","Mature B Cells" ),"immature to mature B", NA)) %>%
+  select(sample,Age_raw,pseudotime,compartments,CellType,timepoint,comparison1,comparison2,comparison3) %>% 
+  pivot_longer(cols=c(comparison1,comparison2,comparison3),names_to="comparison",values_to="comparison_class") %>%
+  filter(!is.na(comparison_class))%>%
+  mutate(comparison_class=factor(comparison_class, levels=c("HPCs to pre/pro B","pre/pro B to immature B","immature to mature B"))) %>%
+  ggplot(aes(timepoint, pseudotime))+ 
+  geom_boxplot(size = .4, outlier.size = 0) + 
+  geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape = 1,size = .6) +
+  coord_cartesian(ylim=c(0,42))+
+  facet_wrap(~comparison_class, scales="free_x",labeller = as_labeller(labs))+
+  stat_compare_means(comparisons = my_comparisons,label="p.signif",
+                     method = "wilcox.test",label.y = 38, label.x = "5days" , hide.ns = FALSE, size=2) +
+  theme(axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8, family = "Arial"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position="top",
+        legend.title=element_text(size=8),
+        legend.text = element_text(size =8),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(size = 8),
+        plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
+  scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
+  labs(title ="Hematoma immune-aged (Monocle3)", x = c(color =''), y = 'Pseudotime') 
+
+sf4e
+```
+
+Supplement Figure 4
+```{r SFig3, fig.width = 8, fig.height = 10}
+
+(wrap_elements(sf4_1)  + wrap_elements(sf4_2)) /
+  (wrap_elements(SF3_5) + wrap_elements(SF3_6) ) /
+  (wrap_elements(sf4e)+ plot_spacer() ) +
+  plot_annotation(tag_levels = 'A') &
+  theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+
+if (file.exists(file.path(figure_out_path,"SFig4.pdf"))){
+  try(ggsave(file.path(figure_out_path,"SFig4.pdf"), device = cairo_pdf,width=8,height=9), silent=T)
+  warning("file not written, please close file in the other application and rerun.")
+} else {
+  ggsave(file.path(figure_out_path,"SFig4.pdf"), device = cairo_pdf,width=8,height=9)
+}
+
+```
+
+```{r sessionInfo}
+sessionInfo()
+```
+

@@ -1,0 +1,58 @@
+Using profile cubi-v1 for setting default command line arguments.
+Building DAG of jobs...
+Launch sidecar process and read first output line.
+Done reading first output line.
+Using shell: /usr/bin/bash
+Provided cluster nodes: 2
+Job stats:
+job                count
+---------------  -------
+all                    1
+rmd_initial            1
+rmd_integration        1
+total                  3
+
+Select jobs to execute...
+
+[Thu Jan 25 17:08:39 2024]
+rule rmd_initial:
+    input: initial_analysis.Rmd, all_samples.txt
+    output: out/initial_analysis.html, out_rds/sobj.separate.cc.rds
+    jobid: 1
+    reason: Missing output files: out/initial_analysis.html, out_rds/sobj.separate.cc.rds
+    resources: mem_mb=100G, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, time=08:00:00, partition=highmem
+
+sbatch:  
+Submitted job 1 with external jobid '3485139'.
+[Thu Jan 25 19:39:44 2024]
+Finished job 1.
+1 of 3 steps (33%) done
+Select jobs to execute...
+
+[Thu Jan 25 19:39:44 2024]
+rule rmd_integration:
+    input: integration.Rmd, all_samples.txt, out_rds/sobj.separate.cc.rds
+    output: out/integration.html
+    jobid: 2
+    reason: Missing output files: out/integration.html; Input files updated by another job: out_rds/sobj.separate.cc.rds
+    resources: mem_mb=100G, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, time=04:00:00, partition=highmem
+
+sbatch:  
+Submitted job 2 with external jobid '3489851'.
+[Thu Jan 25 22:18:49 2024]
+Finished job 2.
+2 of 3 steps (67%) done
+Select jobs to execute...
+
+[Thu Jan 25 22:18:49 2024]
+localrule all:
+    input: out/initial_analysis.html, out/integration.html, out_rds/sobj.separate.cc.rds
+    jobid: 0
+    reason: Input files updated by another job: out_rds/sobj.separate.cc.rds, out/initial_analysis.html, out/integration.html
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=/fast/users/milekm_c/scratch/tmp
+
+[Thu Jan 25 22:18:49 2024]
+Finished job 0.
+3 of 3 steps (100%) done
+Cluster sidecar process has terminated (retcode=0).
+Complete log: .snakemake/log/2024-01-25T170838.448002.snakemake.log

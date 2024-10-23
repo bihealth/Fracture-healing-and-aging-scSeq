@@ -1,0 +1,860 @@
+---
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+params:
+  title: "Analysis Mireille 081223"
+  path_to_object: "../data/cellranger_prox_dist_mouse.rds"
+  shrinkage_type: "normal"
+title: "`r params$title`"
+---
+
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, cache.lazy=FALSE, message=FALSE, warning=FALSE)
+
+suppressPackageStartupMessages(library(Seurat))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(gtools))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(cowplot))
+# suppressPackageStartupMessages(library(rstatix))
+suppressPackageStartupMessages(library(DESeq2))
+suppressPackageStartupMessages(library(ggrepel))
+suppressPackageStartupMessages(library(stringr))
+
+options(future.globals.maxSize = 12 * 1024 * 1024^2)
+
+```
+
+For this Seurat analysis, we used the following parameters:
+
+```{r print parameters}
+
+pars <- as.data.frame(do.call("rbind", params))
+colnames(pars) <- "parameters_used"
+pars
+
+```
+
+Starting with this Seurat object from Mireille.
+
+```{r read_object, fig.height=4, fig.width=8}
+
+path <- "/fast/work/groups/cubi/milekm/mireille/de/fracture-healing-and-aging-scseq/DE_analysis/miha"
+sobj <- readRDS(file.path(path,params$path_to_object))
+
+```
+
+
+```{r redo counts}
+
+selected_cell_types <- sobj[[]] %>% 
+  pull(cluster_id) %>% 
+  unique()
+
+sample <- sobj[[]] %>%
+  select(group,mouse) %>%
+  mutate(sample=paste0(group,"_",mouse)) %>%
+  select(sample)
+
+sobj <- AddMetaData(sobj, metadata = sample)
+
+# cluster_metadata_3 <- sobj[[]] %>%
+#     mutate(age = str_extract(group, "^[0-9]+w")) %>%
+#     mutate(strain = str_extract(group, "w(E|SPF|)")) %>% 
+#     mutate(time = str_extract(group, "[0-9]+days")) %>%
+#     mutate(arm = paste(age, strain, time, sep = "_")) %>%
+#     group_by(arm) %>%
+#     mutate(pseudoID = sprintf("ID%02d", as.numeric(as.factor(mouse)))) %>% 
+#   select(sample, cell_type, group, mouse, age, location, time, strain,pseudoID) %>% 
+#   distinct()
+
+expr <- list()
+
+for (cell_type in selected_cell_types) {
+ for (sample in unique(sobj[[]]$sample)) {
+   # sample <- unique(sobj[[]]$sample)[1]
+   # cell_type <- selected_cell_types[1]
+   cells <- Cells(sobj)[(sobj@meta.data$sample==sample & sobj$cluster_id==cell_type )  ] 
+   cells <- cells[!is.na(cells)]
+   if (length(cells) > 1) {
+     expr[[paste0(cell_type,';',sample)]] <- rowSums(sobj@assays$RNA@counts[,cells])
+   }
+ }
+}
+
+for (sample in unique(sobj[[]]$sample)) {
+ cells <- Cells(sobj)[(sobj@meta.data$sample==sample )]
+ cells <- cells[!is.na(cells)]
+ expr[[paste0('all;',sample)]] <- rowSums(sobj@assays$RNA@counts[,cells])
+}
+
+
+sample_name <- sub(".*-","",sub(";.*","", sub(';','-',names(expr))))
+
+colData<-data.frame(sample=names(expr),
+               cell_type=factor(sub(';.*','',names(expr))),
+               sample_name=sample_name,
+               group=sub("_11.*","",sub(".*;","",names(expr))),
+               mouse=sub('.*s_11','11',names(expr)) ,
+               age=sub("w.*","w", sample_name),
+               location=sub("_.*", "", sub(".*[wEF]","", sample_name )),
+               time = sub(".*_", "", sub("days.*", "days", sample_name)),
+               strain = ifelse(grepl("12w",sample_name), "young",
+                               ifelse(grepl("SPF", sample_name), "aged",
+                                      ifelse(grepl("wE", sample_name),"immuno", NA))))
+
+colData <- colData %>%
+  mutate(age_time_strain = paste0(age, "_", time, "_", strain)) %>%
+  group_by(age_time_strain) %>%
+  mutate(pseudoID = sprintf("ID%02d", as.numeric(as.factor(mouse))))
+
+counts <- do.call(cbind, expr)
+
+# write.table(counts, "all_counts_over_cell_types_expanded_unique.tsv", quote = F, sep ="\t", row.names=T)
+```
+
+
+Get number of reads per sample.
+```{r cell numbers,fig.height=15,fig.width=12}
+
+lengths <- colSums(counts)
+df_lengths <- data.frame(sample = names(lengths),
+                         n_reads = lengths) %>%
+  mutate(group = sub("_11.*","",sub(".*;", "",sample)),
+         celltype = sub(";.*", "", sample))  
+
+ggplot(df_lengths, aes(celltype,n_reads,fill=group))+
+  geom_boxplot(position=position_dodge(width=.5),width=.5, outlier.shape = 1, outlier.colour = "red")+
+  geom_point(position=position_dodge(width=.5),colour='grey30', shape=1, size=2) +
+  facet_wrap(~celltype, scales="free")
+
+```
+
+First, we run DESeq2 by including the pseudoID in the model. Here we assume that the age_time_location of the mouse is replicated in triplicate (pseudoID).
+
+```{r run de 1}
+
+# selected_cell_types <- c("Monocytes / Macrophages", "Neutrophils", "Myeloid Precursor", "T Cells", "B Cells", "Dendritic Cells", "all")
+selected_cell_types <- c("all", "Myeloid Precursor", "B Cells","Neutrophils", "Monocytes / Macrophages")
+
+selected_contrasts <- c("12wfx_5days_vs_12wfx_2days", 
+                        "26wEfx_5days_vs_26wEfx_2days",
+                        "26wSPFfx_5days_vs_26wSPFfx_2days")
+res <- list()
+
+for (celltype in selected_cell_types){
+  
+  coldata_df <- colData %>%
+    dplyr::filter(cell_type %in% celltype)
+  counts_df <- subset(counts, select = coldata_df$sample)
+  if (sum(colSums(counts_df)) != 0){
+    dds <- DESeqDataSetFromMatrix(countData=as.matrix(counts_df),
+                                  colData=coldata_df,
+                                  design=~pseudoID + group)
+    contrasts <- selected_contrasts
+    sub_res <- list()
+    
+    for (comparison in contrasts){
+      perturbation <- sub("_vs_.*", "", comparison)
+      reference <- sub(".*_vs_", "", comparison)
+      dds$group <- relevel(dds$group, ref = reference)
+      
+      if (celltype != "all" & celltype != "all_cells"){
+        dds <- estimateSizeFactors(dds, type='poscounts')
+        dds <- DESeq(dds, test = 'LRT', reduced = ~1, useT=TRUE, minmu=1e-6, minReplicatesForReplace=Inf)
+      } else {
+        dds <- estimateSizeFactors(dds)
+        dds <- DESeq(dds)
+      }
+      
+      if(params$shrinkage_type=="apeglm"){
+        sub_res[[comparison]] <- lfcShrink(dds, coef=paste0("group_",comparison), type=params$shrinkage_type, format="DataFrame") %>%
+          as.data.frame() %>%
+          tibble::rownames_to_column('gene_name') %>%
+          mutate(cell_type=celltype, contrast = comparison)
+      } else {
+        
+        sub_res[[comparison]] <- lfcShrink(dds, contrast=c("group",perturbation, reference), type=params$shrinkage_type, format="DataFrame") %>%
+          as.data.frame() %>%
+          tibble::rownames_to_column('gene_name') %>%
+          mutate(cell_type=celltype, contrast = comparison)
+      }
+    }
+    
+  }
+  res[[celltype]] <- do.call("rbind", sub_res) %>%
+    tibble::remove_rownames()
+}
+
+res_df <- do.call("rbind", res) %>%
+  tibble::remove_rownames()
+
+```
+
+
+
+
+```{r volc1, fig.width=9,fig.height=9}
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%                  
+    dplyr::filter(!is.na(padj), contrast == comparison) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .05)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison,padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2, scales = "free")
+  print(p)
+  
+}
+```
+
+```{r ma100, fig.width=9,fig.height=9}
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%
+    dplyr::filter(contrast == comparison) %>%
+    ggplot(aes(x=baseMean,y=log2FoldChange,color=padj < .05)) +
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison, padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=30,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    scale_x_continuous(trans='log10') +
+    coord_cartesian(ylim =c(-4,4)) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2)
+  print(p)
+}
+```
+
+```{r res stats100, fig.width=7,fig.height=6}
+
+res_df %>%
+  dplyr::arrange(padj) %>%
+  dplyr::filter(!is.na(padj) & (padj < .05)) %>%
+  dplyr::mutate_if(is.numeric, signif, 2) %>%
+  DT::datatable(rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+
+# write.table(res_df,paste0("de_",condition_perturbation,"_vs_",condition_reference,".tsv"), quote=F, sep="\t",row.names = F)
+```
+
+Repeat this without pseudoID in the model. So only ~group.
+
+```{r run de 40}
+
+# selected_cell_types <- c("Monocytes / Macrophages", "Neutrophils", "Myeloid Precursor", "T Cells", "B Cells", "Dendritic Cells", "all")
+selected_cell_types <- c("all","Myeloid Precursor",  "B Cells","Neutrophils", "Monocytes / Macrophages")
+
+selected_contrasts <- c("12wfx_5days_vs_12wfx_2days", 
+                        "26wEfx_5days_vs_26wEfx_2days",
+                        "26wSPFfx_5days_vs_26wSPFfx_2days")
+res <- list()
+
+for (celltype in selected_cell_types){
+  
+  coldata_df <- colData %>%
+    dplyr::filter(cell_type %in% celltype)
+  counts_df <- subset(counts, select = coldata_df$sample)
+  if (sum(colSums(counts_df)) != 0){
+    dds <- DESeqDataSetFromMatrix(countData=as.matrix(counts_df),
+                                  colData=coldata_df,
+                                  design=~group)
+    contrasts <- selected_contrasts
+    sub_res <- list()
+    
+    for (comparison in contrasts){
+      perturbation <- sub("_vs_.*", "", comparison)
+      reference <- sub(".*_vs_", "", comparison)
+      dds$group <- relevel(dds$group, ref = reference)
+      
+      if (celltype != "all" & celltype != "all_cells"){
+        dds <- estimateSizeFactors(dds, type='poscounts')
+        dds <- DESeq(dds, test = 'LRT', reduced = ~1, useT=TRUE, minmu=1e-6, minReplicatesForReplace=Inf)
+      } else {
+        dds <- estimateSizeFactors(dds)
+        dds <- DESeq(dds)
+      }
+      
+      if(params$shrinkage_type=="apeglm"){
+        sub_res[[comparison]] <- lfcShrink(dds, coef=paste0("group_",comparison), type=params$shrinkage_type, format="DataFrame") %>%
+          as.data.frame() %>%
+          tibble::rownames_to_column('gene_name') %>%
+          mutate(cell_type=celltype, contrast = comparison)
+      } else {
+        
+        sub_res[[comparison]] <- lfcShrink(dds, contrast=c("group",perturbation, reference), type=params$shrinkage_type, format="DataFrame") %>%
+          as.data.frame() %>%
+          tibble::rownames_to_column('gene_name') %>%
+          mutate(cell_type=celltype, contrast = comparison)
+      }
+    }
+    
+  }
+  res[[celltype]] <- do.call("rbind", sub_res) %>%
+    tibble::remove_rownames()
+}
+
+res_df <- do.call("rbind", res) %>%
+  tibble::remove_rownames()
+
+```
+
+```{r volc40, fig.width=9,fig.height=9}
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%                  
+    dplyr::filter(!is.na(padj), contrast == comparison) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .05)) + 
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison,padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2, scales = "free")
+  print(p)
+}
+```
+
+```{r ma1, fig.width=9,fig.height=9}
+for (comparison in unique(res_df$contrast)){
+  
+  p <- res_df %>%
+    dplyr::filter(contrast == comparison) %>%
+    ggplot(aes(x=baseMean,y=log2FoldChange,color=padj < .05)) +
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison, padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=30,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    scale_x_continuous(trans='log10') +
+    coord_cartesian(ylim =c(-4,4)) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2)
+  print(p)
+}
+```
+
+```{r res stats2, fig.width=7,fig.height=6}
+
+res_df %>%
+  dplyr::arrange(padj) %>%
+  dplyr::filter(!is.na(padj) & (padj < .05)) %>%
+  dplyr::mutate_if(is.numeric, signif, 2) %>%
+  DT::datatable(rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+
+# write.table(res_df,paste0("de_",condition_perturbation,"_vs_",condition_reference,".tsv"), quote=F, sep="\t",row.names = F)
+```
+
+Here, we run DESeq2 by including the mouse ID in the model (not by pseudoID but by actual mouse ID). For this, we have to select the subset of the mice by age_time_strain, so that the model can be full rank.
+
+```{r run de 10, fig.width=9,fig.height=9}
+# selected_cell_types <- c("Monocytes / Macrophages", "Neutrophils", "Myeloid Precursor", "T Cells", "B Cells", "Dendritic Cells", "all")
+selected_cell_types <- c("all", "Myeloid Precursor", "B Cells","Neutrophils", "Monocytes / Macrophages")
+
+age_time_strain <- unique(colData$age_time_strain)
+
+res <- list()
+
+for (which_mice in age_time_strain){
+  for (celltype in selected_cell_types){
+    coldata_df <- colData %>%
+      dplyr::filter(cell_type %in% celltype, age_time_strain == which_mice)
+    counts_df <- subset(counts, select = coldata_df$sample)
+    which_groups <- unique(coldata_df$group)
+    contrasts <- expand_grid(perturbation=which_groups, reference=which_groups) %>%
+      filter(perturbation < reference) %>%
+      mutate(contrast = paste0(perturbation,"_vs_",reference)) %>%
+      pull(contrast)
+    sub_res <- list()
+    for (comparison in contrasts){
+      perturbation <- sub("_vs_.*", "", comparison)
+      reference <- sub(".*_vs_", "", comparison)
+      
+      if (sum(colSums(counts_df)) != 0){
+        dds <- DESeqDataSetFromMatrix(countData=as.matrix(counts_df),
+                                      colData=coldata_df,
+                                      design=~mouse + group)
+        dds$group <- relevel(dds$group, ref = reference)
+        if (celltype != "all" & celltype != "all_cells"){
+          dds <- estimateSizeFactors(dds, type='poscounts')
+          dds <- DESeq(dds, test = 'LRT', reduced = ~1, useT=TRUE, minmu=1e-6, minReplicatesForReplace=Inf)
+        } else {
+          dds <- estimateSizeFactors(dds)
+          dds <- DESeq(dds)
+        }
+      }
+      
+      if(params$shrinkage_type=="apeglm"){
+        sub_res[[comparison]] <- lfcShrink(dds, coef=paste0("group_",comparison), type=params$shrinkage_type, format="DataFrame") %>%
+          as.data.frame() %>%
+          tibble::rownames_to_column('gene_name') %>%
+          mutate(cell_type=celltype, contrast = comparison)
+      } else {
+        sub_res[[comparison]] <- lfcShrink(dds, contrast=c("group",perturbation, reference), type=params$shrinkage_type, format="DataFrame") %>%
+          as.data.frame() %>%
+          tibble::rownames_to_column('gene_name') %>%
+          mutate(cell_type=celltype, contrast = comparison)
+      }
+    }
+    res[[celltype]] <- do.call("rbind", sub_res) %>%
+      tibble::remove_rownames()
+  }
+}
+res_df <- do.call("rbind", res) %>%
+  tibble::remove_rownames()
+
+
+```
+
+
+```{r volc, fig.width=9,fig.height=9}
+
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%
+    dplyr::filter(!is.na(padj), contrast == comparison) %>%
+    ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .05)) +
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison,padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=40,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2, scales = "free")
+  print(p)
+}
+```
+
+```{r ma200, fig.width=9,fig.height=9}
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%
+    dplyr::filter(contrast == comparison) %>%
+    ggplot(aes(x=baseMean,y=log2FoldChange,color=padj < .05)) +
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison, padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=30,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    scale_x_continuous(trans='log10') +
+    coord_cartesian(ylim =c(-4,4)) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2)
+  print(p)
+}
+```
+
+
+
+```{r res stats3, fig.width=7,fig.height=6}
+
+res_df %>%
+  dplyr::arrange(padj) %>%
+  dplyr::filter(!is.na(padj) & (padj < .05)) %>%
+  dplyr::mutate_if(is.numeric, signif, 2) %>%
+  DT::datatable(rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+
+# # write.table(res_df,paste0("de_",condition_perturbation,"_vs_",condition_reference,".tsv"), quote=F, sep="\t",row.names = F)
+```
+
+Fourth approach is to run all contrasts separately and put only group into the model. We compare these results.
+
+```{r run de6}
+
+res <- list()
+
+# selected_cell_types <- c("Monocytes / Macrophages", "Neutrophils", "Myeloid Precursor", "T Cells", "B Cells", "Dendritic Cells", "all")
+selected_cell_types <- c("all", "Myeloid Precursor", "B Cells","Neutrophils", "Monocytes / Macrophages")
+condition_perturbation <- "12wfx_5days"
+condition_reference <- "12wfx_2days"
+
+
+for (celltype in selected_cell_types){
+  # celltype<-"B Cells"
+  coldata_df <- colData %>%
+    dplyr::filter(cell_type == celltype & (group ==condition_perturbation | group == condition_reference) )
+  counts_df <- subset(counts, select = coldata_df$sample)
+  if (sum(colSums(counts_df) != 0) & length(unique(coldata_df$group)) == 2){
+    dds <- DESeqDataSetFromMatrix(countData=as.matrix(counts_df),
+                                  colData=coldata_df,
+                                  design=~group)
+    dds$group <- relevel(dds$group, ref = condition_reference)
+
+    if (celltype != "all"){
+      dds <- estimateSizeFactors(dds, type='poscounts')
+      dds <- DESeq(dds, test = 'LRT', reduced = ~1, useT=TRUE, minmu=1e-6, minReplicatesForReplace=Inf)
+    } else {
+      dds <- estimateSizeFactors(dds)
+      dds <- DESeq(dds)
+    }
+
+    res[[celltype]] <- lfcShrink(dds, coef=2, type=params$shrinkage_type, format="DataFrame") %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column('gene_name') %>%
+      mutate(cell_type=celltype, contrast = resultsNames(dds)[2])
+  }
+}
+
+res_df <- do.call("rbind", res) %>%
+  tibble::remove_rownames()
+```
+
+
+```{r volcano, fig.width=9,fig.height=9}
+
+res_df %>%
+  dplyr::filter(!is.na(padj)) %>%
+  ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .05)) +
+  geom_point(size=.5, shape=1) +
+  geom_label_repel(data=res_df %>%
+                    dplyr::filter(padj < .05),
+                  aes(label=gene_name),
+                  segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=40,
+                  label.padding=0.05,label.size=NA) +
+  scale_color_manual(values=c('black','red')) +
+  theme_classic() +
+  theme(legend.position='none',
+        strip.background=element_blank())+
+  ggtitle(res_df$contrast)+
+  facet_wrap(~cell_type, ncol = 2, scales = "free")
+```
+
+
+```{r ma300, fig.width=9,fig.height=9}
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%
+    dplyr::filter(contrast == comparison) %>%
+    ggplot(aes(x=baseMean,y=log2FoldChange,color=padj < .05)) +
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison, padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=30,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    scale_x_continuous(trans='log10') +
+    coord_cartesian(ylim =c(-4,4)) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2)
+  print(p)
+}
+```
+
+```{r res stats900, fig.width=7,fig.height=6}
+
+res_df %>%
+  dplyr::arrange(padj) %>%
+  dplyr::filter(!is.na(padj) & (padj < .05)) %>%
+  dplyr::mutate_if(is.numeric, signif, 2) %>%
+  DT::datatable(rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+
+# write.table(res_df,paste0("de_",condition_perturbation,"_vs_",condition_reference,".tsv"), quote=F, sep="\t",row.names = F)
+```
+
+
+
+
+```{r run de20}
+
+res <- list()
+
+# selected_cell_types <- c("Monocytes / Macrophages", "Neutrophils", "Myeloid Precursor", "T Cells", "B Cells", "Dendritic Cells", "all")
+selected_cell_types <- c("all", "Myeloid Precursor", "B Cells","Neutrophils", "Monocytes / Macrophages")
+condition_perturbation <- "26wEfx_5days"
+condition_reference <- "26wEfx_2days"
+
+
+
+for (celltype in selected_cell_types){
+  # celltype<-"B Cells"
+  coldata_df <- colData %>%
+    dplyr::filter(cell_type == celltype & (group ==condition_perturbation | group == condition_reference) )
+  counts_df <- subset(counts, select = coldata_df$sample)
+  if (sum(colSums(counts_df) != 0) & length(unique(coldata_df$group)) == 2){
+    dds <- DESeqDataSetFromMatrix(countData=as.matrix(counts_df),
+                                  colData=coldata_df,
+                                  design=~group)
+    dds$group <- relevel(dds$group, ref = condition_reference)
+
+    if (celltype != "all"){
+      dds <- estimateSizeFactors(dds, type='poscounts')
+      dds <- DESeq(dds, test = 'LRT', reduced = ~1, useT=TRUE, minmu=1e-6, minReplicatesForReplace=Inf)
+    } else {
+      dds <- estimateSizeFactors(dds)
+      dds <- DESeq(dds)
+    }
+
+    res[[celltype]] <- lfcShrink(dds, coef=2, type=params$shrinkage_type, format="DataFrame") %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column('gene_name') %>%
+      mutate(cell_type=celltype, contrast = resultsNames(dds)[2])
+  }
+}
+
+res_df <- do.call("rbind", res) %>%
+  tibble::remove_rownames()
+```
+
+
+```{r volcano20, fig.width=9,fig.height=9}
+
+res_df %>%
+  dplyr::filter(!is.na(padj)) %>%
+  ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .05)) +
+  geom_point(size=.5, shape=1) +
+  geom_label_repel(data=res_df %>%
+                    dplyr::filter(padj < .05),
+                  aes(label=gene_name),
+                  segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=40,
+                  label.padding=0.05,label.size=NA) +
+  scale_color_manual(values=c('black','red')) +
+  theme_classic() +
+  theme(legend.position='none',
+        strip.background=element_blank())+
+  ggtitle(res_df$contrast)+
+  facet_wrap(~cell_type, ncol = 2, scales = "free")
+```
+
+
+```{r ma500, fig.width=9,fig.height=9}
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%
+    dplyr::filter(contrast == comparison) %>%
+    ggplot(aes(x=baseMean,y=log2FoldChange,color=padj < .05)) +
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison, padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=30,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    scale_x_continuous(trans='log10') +
+    coord_cartesian(ylim =c(-4,4)) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2)
+  print(p)
+}
+```
+
+```{r res stats500, fig.width=7,fig.height=6}
+
+res_df %>%
+  dplyr::arrange(padj) %>%
+  dplyr::filter(!is.na(padj) & (padj < .05)) %>%
+  dplyr::mutate_if(is.numeric, signif, 2) %>%
+  DT::datatable(rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+
+# write.table(res_df,paste0("de_",condition_perturbation,"_vs_",condition_reference,".tsv"), quote=F, sep="\t",row.names = F)
+```
+
+
+
+```{r run de21}
+
+res <- list()
+
+# selected_cell_types <- c("Monocytes / Macrophages", "Neutrophils", "Myeloid Precursor", "T Cells", "B Cells", "Dendritic Cells", "all")
+selected_cell_types <- c("all","Myeloid Precursor",  "B Cells","Neutrophils", "Monocytes / Macrophages")
+condition_perturbation <- "26wSPFfx_5days"
+condition_reference <- "26wSPFfx_2days"
+
+for (celltype in selected_cell_types){
+  # celltype<-"B Cells"
+  coldata_df <- colData %>%
+    dplyr::filter(cell_type == celltype & (group ==condition_perturbation | group == condition_reference) )
+  counts_df <- subset(counts, select = coldata_df$sample)
+  if (sum(colSums(counts_df) != 0) & length(unique(coldata_df$group)) == 2){
+    dds <- DESeqDataSetFromMatrix(countData=as.matrix(counts_df),
+                                  colData=coldata_df,
+                                  design=~group)
+    dds$group <- relevel(dds$group, ref = condition_reference)
+
+    if (celltype != "all"){
+      dds <- estimateSizeFactors(dds, type='poscounts')
+      dds <- DESeq(dds, test = 'LRT', reduced = ~1, useT=TRUE, minmu=1e-6, minReplicatesForReplace=Inf)
+    } else {
+      dds <- estimateSizeFactors(dds)
+      dds <- DESeq(dds)
+    }
+
+    res[[celltype]] <- lfcShrink(dds, coef=2, type=params$shrinkage_type, format="DataFrame") %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column('gene_name') %>%
+      mutate(cell_type=celltype, contrast = resultsNames(dds)[2])
+  }
+}
+
+res_df <- do.call("rbind", res) %>%
+  tibble::remove_rownames()
+```
+
+
+```{r volcano25, fig.width=9,fig.height=9}
+
+res_df %>%
+  dplyr::filter(!is.na(padj)) %>%
+  ggplot(aes(x=log2FoldChange,y=-log10(pvalue),color=padj < .05)) +
+  geom_point(size=.5, shape=1) +
+  geom_label_repel(data=res_df %>%
+                    dplyr::filter(padj < .05),
+                  aes(label=gene_name),
+                  segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=40,
+                  label.padding=0.05,label.size=NA) +
+  scale_color_manual(values=c('black','red')) +
+  theme_classic() +
+  theme(legend.position='none',
+        strip.background=element_blank())+
+  ggtitle(res_df$contrast)+
+  facet_wrap(~cell_type, ncol = 2, scales = "free")
+```
+
+```{r ma700, fig.width=9,fig.height=9}
+for (comparison in unique(res_df$contrast)){
+  p <- res_df %>%
+    dplyr::filter(contrast == comparison) %>%
+    ggplot(aes(x=baseMean,y=log2FoldChange,color=padj < .05)) +
+    geom_point(size=.5, shape=1) +
+    geom_label_repel(data=res_df %>%
+                       dplyr::filter(contrast == comparison, padj < .05),
+                     aes(label=gene_name),
+                     segment.size=.25,segment.alpha=.5,size=3,color='black',max.overlaps=30,
+                     label.padding=0.05,label.size=NA) +
+    scale_color_manual(values=c('black','red')) +
+    scale_x_continuous(trans='log10') +
+    coord_cartesian(ylim =c(-4,4)) +
+    theme_classic() +
+    theme(legend.position='none',
+          strip.background=element_blank())+
+    ggtitle(comparison)+
+    facet_wrap(~cell_type, ncol = 2)
+  print(p)
+}
+```
+
+```{r res stats700, fig.width=7,fig.height=6}
+
+res_df %>%
+  dplyr::arrange(padj) %>%
+  dplyr::filter(!is.na(padj) & (padj < .05)) %>%
+  dplyr::mutate_if(is.numeric, signif, 2) %>%
+  DT::datatable(rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+
+# write.table(res_df,paste0("de_",condition_perturbation,"_vs_",condition_reference,".tsv"), quote=F, sep="\t",row.names = F)
+```
+Next, we show enrichment of transcriptional modules.
+
+```{r add pathways, fig.width=25,fig.height=15}
+# library(tmod)
+# 
+# genes <- lapply(res, function(x) x %>% 
+#                   filter(!is.na(padj)) %>%
+#                   arrange(pvalue))
+# lgenes <- lapply(genes, function(x) x$gene_name)
+# 
+# df2tmod <- function(df, gene_id_col=ncol(df), module_id_col=1, module_title_col=2) {
+# 
+#   require(tmod, quietly=TRUE)
+# 
+#   gene_ids <- df[[gene_id_col]]
+#   module_ids <- df[[module_id_col]]
+#   m2g <- tapply(gene_ids, module_ids, list)
+#   df[[gene_id_col]] <- NULL
+#   df <- df[!duplicated(df[[module_id_col]]), ]
+#   colnames(df)[module_id_col] <- "ID"
+#   colnames(df)[module_title_col] <- "Title"
+# 
+#   makeTmod(modules=df, modules2genes=m2g)
+# }
+# 
+# df <- as.data.frame(msigdbr::msigdbr(species='Mus musculus'))
+# df <- df[ , c("gs_name", "gs_id", "gs_cat", "gs_subcat", "gene_symbol") ]
+# colnames(df) <- c("Title", "ID", "Category", "Subcategory", "GeneID")
+# msig <- df2tmod(df[!is.na(df$GeneID),], gene_id_col=ncol(df), module_id_col=2, module_title_col=1)
+# sel <- (msig$gs$Category %in% c("H"))  | (msig$gs$Subcategory %in% c('CP:REACTOME','GO:BP','CP:KEGG'))
+# 
+# res.tmod <- lapply(lgenes, tmodCERNOtest, mset = msig[sel])
+# 
+# res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-10 & AUC > .7))
+# 
+# pie <- lapply(genes, function(x) tmodDecideTests(x$gene_name, lfc = x$log2FoldChange,
+#                                                  pval = x$pvalue, lfc.thr=0.1, mset = msig[sel]))
+# pie <- lapply(pie, as.data.frame)
+# 
+# tmodPanelPlot(res.tmod.filtered, text.cex = .8, pie = pie, pie.style="rug", grid="at")
+# 
+# 
+# display_terms <- function(df){
+#   if (nrow(res.tmod.filtered[[df]]) >0){
+#   res.tmod.filtered[[df]]$cell_type <- df
+#   res.tmod.filtered[[df]] %>%
+#   dplyr::arrange(adj.P.Val) %>%
+#   dplyr::mutate_if(is.numeric, signif, 2) %>%
+#   DT::datatable(caption=df,rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+#   }
+# }
+# 
+# 
+# lapply(names(res.tmod.filtered), display_terms )
+# 
+# 
+# for (cell_type in names(res.tmod.filtered)){
+#   # cell_type <- "all_cells"
+#   res.tmod.filtered[[cell_type]] %>%
+#   dplyr::select(ID,Title,AUC,adj.P.Val) %>%
+#   dplyr::mutate_if(is.numeric, signif,2) %>%
+#   DT::datatable(caption=cell_type, rownames=FALSE, extensions = 'Buttons', options = list(dom='frtBip', buttons = c('csv')))
+# }
+
+```
+
+
+
+```{r session}
+
+sessionInfo()
+
+```
+
+

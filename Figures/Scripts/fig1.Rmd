@@ -1,0 +1,478 @@
+---
+author: "Mireille Ngokingha Tchouto and Miha Milek"
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+params:
+  title: "Bone healing Fig 1"
+  object: "Figures/data/sobj_group_force_final_version.rds"
+  raw_object: "Figures/data/sobj_hto.rds"
+  git_path: "/mnt/d/work/mireille/fracture-healing-and-aging-scseq"
+  figure_out_path: "/mnt/d/onedrive/OneDrive - Charité - Universitätsmedizin Berlin/Third version/Figures/redone/"
+---
+
+```{r setup, include=FALSE}
+
+library(magrittr)
+library(pheatmap)
+library(tibble)
+library(scater)
+library(httr)
+library(Seurat)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(cowplot)
+library(igraph)
+library(Matrix)
+library(tidyr)
+library(tidyverse)
+library(RCurl)
+library(plyr)
+library(DESeq2)
+library(plyr)
+library(gtools)
+library(biomaRt)
+library(AnnotationHub)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(SingleR)
+library(tibble)
+library(SingleCellExperiment)
+library(scran)
+library(apeglm)
+library(ashr)
+library(sctransform)
+library(RColorBrewer)
+library(BiocParallel)
+library(extrafont)
+library(Rttf2pt1) # v1.3.8 or lower
+# font_import(paths="/mnt/c/Windows/Fonts", pattern="arial", prompt=F)
+loadfonts(device = "all")
+library(patchwork)
+library(magick)
+```
+
+```{r paths}
+
+git_path <- params$git_path
+
+figure_out_path <- params$figure_out_path
+``` 
+
+load seurat objects
+```{r load}
+
+sobj <-readRDS(file.path(git_path, params$object ))
+raw <- readRDS(file.path(git_path, params$raw_object))
+
+```
+
+Renaming the Age group
+```{r rename}
+
+sobj$Age_raw<-NULL
+Idents(sobj)<-sobj$age_strain
+new.cluster.ids <- c("Young","Immune_aged","Aged")
+names(new.cluster.ids) <- levels(sobj)
+sobj$Age_raw<-Idents(sobj)
+
+add_meta_strain <- sobj[[]] %>%
+  tibble::rownames_to_column("cells") %>%
+  select(cells, Age_raw) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
+                       ifelse(Age_raw=="26w_nonSPF", "Immune_aged", 
+                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  select(cells, strain) %>%
+  tibble::column_to_rownames("cells")
+
+sobj <- AddMetaData(sobj, metadata = add_meta_strain)
+  
+```
+
+Manual annotation cellranger count
+```{r manual}
+
+Idents(sobj)<-sobj$seurat_clusters
+new.cluster.ids <- c( "Monocytes", "Neutrophils", "Myeloid Precursor", "Monocytes", "Eosinophils",
+                      "Monocytes", "Dendritic Cells", "Neutrophils", "Myeloid Precursor", "Myeloid Precursor",
+                      "Myeloid Precursor", "T Cells", "Neutrophils", 
+                      "B Cells","Monocytes", "B Cells","HPCs","Monocytes","T Cells","Neutrophils","Monocytes", "Monocytes","NK Cells","Basophils","Monocytes","HPCs","Erythroblast","B Cells","Eosinophils","Monocytes","Plasma Cells")
+
+names(new.cluster.ids) <- levels(sobj)
+sobj <- RenameIdents(sobj, new.cluster.ids)
+sobj$CellTypes<-Idents(sobj)
+
+```
+
+dotplot 
+```{r dotplot, fig.width = 4, fig.height = 3}
+features <- c("Cd34","Kit","Flt3","Cd79a","Ebf1","Cd19","Igha","Ighm","Cd3g","Klrd1","Siglech","Csf1r", "Mpo","Elane","S100a8","Hbb-bt","Gata1","Ms4a2","Snhg9")
+
+DefaultAssay(sobj) <- "RNA"
+sobj$CellTypes<- factor(sobj$CellTypes, levels = c("HPCs","B Cells", "Plasma Cells", "T Cells","NK Cells","Dendritic Cells","Monocytes","Myeloid Precursor","Neutrophils","Erythroblast","Basophils","Eosinophils"))
+
+Idents(sobj)<-sobj$CellTypes
+d <-DotPlot(sobj, features = features, dot.scale=2.5)+ 
+  scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) + 
+  theme(text = element_text(family = "Arial"),
+        axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+        axis.text.y=element_text(size=8),
+        strip.text.x = element_text(size = 8),#for facet wrap
+        strip.placement = "outside",
+        axis.title = element_text(size=8,face="bold"),
+        axis.title.y.right = element_text(size = 8),
+        legend.text=element_text(size=8),
+        legend.position = "top",
+        legend.title=element_text(hjust = 0,size=8),
+        legend.direction = "vertical",
+        legend.key.height = unit(.1,"in"),
+        axis.line = element_line(linewidth=1)) +
+        labs(x = c(), y = c())
+d
+
+```
+Umap all cells
+```{r umap, fig.width =4, fig.height = 3}
+
+DefaultAssay(sobj) <- "RNA"
+
+u <-DimPlot(sobj,reduction = 'umap',group.by = "CellTypes",label.size=2.5,pt.size=.1,label=T,repel=T)  +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_blank(),
+        axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.title = element_blank(),
+        strip.text.x = element_text(size = 8),
+        legend.key.width = unit(.1,"in"),
+        legend.key.spacing.y = unit(.1,"in"),
+        legend.key.size = unit(.1,"in"),
+        legend.key.height = unit(.0001,"in"),
+        legend.position = "top") + NoAxes() +
+  guides(colour=guide_legend(ncol=3,override.aes = list(size=2)))
+
+# add the umap_label
+
+uu <- u +  annotate(geom="segment", x = -19, y = -16, xend = -13.5, yend = -16, 
+                       arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = - 19, y = -18, label = "UMAP1", size=3,hjust = "left") +
+  annotate(geom="segment", x = -19, y = -16, xend = -19, yend = -9, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = -21, y = -16, angle=90, size=3,label = "UMAP2", hjust = "left") 
+
+uu
+```
+
+
+B cells rna
+```{r b cells, fig.width = 8/3, fig.height = 3}
+
+DefaultAssay(sobj) <- "RNA"
+f1_sf<-sobj %>%
+  FeaturePlot(features=c("Cd19"),cols = c("lightgrey", "darkred"))+ 
+  guides(colour=guide_colorbar(title="Norm. \nExpr."))+
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size=8,face="bold"),
+        legend.text=element_text(size=8),
+        legend.position = "right",
+        legend.title=element_text(size=8),
+        legend.title.position = "top") + 
+  labs(title = "Cd19\nRNA Expression") & 
+  NoAxes()
+
+f1 <- f1_sf +  
+  annotate(geom="segment", x = -11.5, y = -15, xend = -4, yend = -15,
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = - 12, y = -16, label = "UMAP1", size=3,hjust = "left") +
+  annotate(geom="segment", x = -11.5, y = -15, xend = -11.5, yend = -8, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = -13, y = -15, angle=90, size=3,label = "UMAP2", hjust = "left") 
+
+
+f1
+```
+B cells antibody 
+```{r b cells ab, fig.width = 8/3, fig.height = 3}
+
+DefaultAssay(sobj) <- "RNA"
+
+f2<-sobj %>%
+  FeaturePlot(features=c("Ebf1"),cols = c("lightgrey", "darkred"))+
+  guides(colour=guide_colorbar(title="Norm. \nExpr."))+
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size=8,face="bold"),
+        legend.text=element_text(size=8),
+        legend.position = "right",
+        legend.title=element_text(size=8)) + 
+  labs(title = "Ebf1\nRNA Expression") & 
+  NoAxes()
+f2
+```
+T cells RNA
+```{r t cells, fig.width = 8/3, fig.height = 3}
+
+DefaultAssay(sobj) <- "RNA"
+f3<-sobj %>%
+  FeaturePlot(features=c("Cd79a"),cols = c("lightgrey", "darkred")) + 
+  guides(colour=guide_colorbar(title="Norm. \nExpr."))+
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size=8,face="bold"),
+        legend.text=element_text(size=8),
+        legend.position = "right",
+        legend.title=element_text(size=8))+ 
+  labs(title = "Cd79a\nRNA Expression",) & 
+  NoAxes()
+f3
+```
+
+
+T cells antibody
+```{r t cells ab, fig.width = 5, fig.height = 5}
+DefaultAssay(sobj) <- "Antibody.Capture"
+
+f4<-sobj %>%
+  FeaturePlot(features=c("CD3"),cols = c("lightgrey", "darkred")) + 
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size=8,face="bold"),
+        legend.text=element_text(size=8),
+        legend.position = "right",
+        legend.title=element_text(size=8)) + 
+  labs(title = "Cd3\nAntibody Capture") & 
+  NoAxes()
+
+f4
+
+```
+
+```{r svg, fig.width =8, fig.height = 10}
+
+# read svg image
+fig1A <- image_read(file.path(git_path,"Figures/images/Fig1A_correct_with_n.svg"))
+
+# place svg image
+a <- ggdraw() + 
+  draw_image(fig1A,hjust=.05,vjust=0.55,width=1,height=1, scale=2.5) 
+
+a
+```
+
+```{r plot fig1, fig.width =8, fig.height = 9}
+
+wrap_elements(a)/
+  (wrap_elements(uu) | wrap_elements(d))/
+  (wrap_elements(f1)|wrap_elements(f2)|wrap_elements(f3))+
+  plot_layout(heights =c(1,1.2,.7))+
+  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+
+if (file.exists(file.path(figure_out_path,"fig1.pdf"))){
+  try(ggsave(file.path(figure_out_path,"fig1.pdf"), device = cairo_pdf,width=8,height=9), silent=T)
+  warning("file not written, please close file in the other application and rerun.")
+} else {
+  ggsave(file.path(figure_out_path,"fig1.pdf"), device = cairo_pdf,width=8,height=9)
+}
+
+```
+
+Supplemental Figure 1.
+Umap all cells of seurat clusters
+```{r umap all, fig.width =8/2, fig.height = 3}
+
+DefaultAssay(sobj) <- "RNA"
+
+SF1 <-DimPlot(sobj,reduction = 'umap',group.by = "seurat_clusters", label = T,repel=T,label.size=2.5)  +
+  theme(text = element_text(family = "Arial",size=8),
+        plot.title = element_blank(),
+        axis.title = element_text(size = 8),
+        legend.position = "none") + 
+  NoAxes() 
+       
+# add the umap_label
+
+uu_SF <- SF1 +  
+  annotate(geom="segment", x = -19, y = -16, xend = -14.5, yend = -16,
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = - 19, y = -17, label = "UMAP1", size=3,hjust = "left") +
+  annotate(geom="segment", x = -19, y = -16, xend = -19, yend = -12, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = -20, y = -16, angle=90, size=3,label = "UMAP2", hjust = "left") 
+
+
+uu_SF
+```
+
+Generating supplement figure 1
+
+```{r sf1, fig.width = 8/2, fig.height = 4}
+
+features <- list("HPCs" = c("Cd34","Kit","Flt3"),"B cells" = c("Ebf1","Cd19","Fcer2a","Cd38","Vpreb1"), "Plasma \nCells" = c("Igha","Ighm"), "T cell" = c("Cd3g","Cd3e"),"NK cells"=c("Klrd1"), "DC" = "Siglech", "Monocyte" = c("Csf1r"), "Myeloid" = c("Mpo","Elane"),  "Neutrophils"="S100a8","Erythroblast "= c("Hbb-bt","Gata1"),"Basophil"="Ms4a2", "Eosinophil"="Snhg9")
+
+DefaultAssay(sobj) <- "RNA"
+Idents(sobj)<-sobj$seurat_clusters
+
+SF1_1 <-DotPlot(sobj, features = features, dot.scale=2.3,)+ 
+  scale_colour_gradientn(colours =rev(brewer.pal(n = 10, name = "RdBu"))) + 
+  theme(text = element_text(family = "Arial"),
+        axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+        axis.text.y=element_text(size=8),
+        strip.text.x = element_text(size = 8, angle=90),#for facet wrap
+        strip.placement = "down",
+        axis.title = element_text(size=8,face="bold"),
+        axis.title.y.right = element_text(size = 8),
+        legend.text=element_text(size=8),
+        legend.position = "top",
+        legend.title=element_text(size=8),
+        legend.key.width = unit(.05,"in"),
+        legend.key.height = unit(.15,"in"),
+        axis.line = element_line(linewidth=1)) +
+   guides(colour=guide_legend(ncol=4),
+          size=guide_legend(ncol=3))+
+labs(x = c(), y = c())
+
+
+SF1_1
+```
+
+Show distributions of label transfer scores. 
+```{r score of label transfer, , fig.width=8/3,fig.height=3}
+
+cols <- colnames(sobj[[]])[grepl("predict", colnames(sobj[[]]))]
+
+palette <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+             "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "darkred",
+             "green3", "darkviolet","black","cyan2", "lightgrey")
+
+SF1_2 <- sobj[[]] %>%
+  tibble::rownames_to_column("cells") %>%
+    select(all_of(c("cells", cols))) %>%
+  mutate(cell_id = paste0(cells, "_", predicted.id)) %>%
+  select(-cells, -predicted.id,) %>%
+  pivot_longer(-cell_id,values_to = "score") %>%
+  group_by(cell_id) %>%
+  summarise(projection_score = max(score)) %>%
+  mutate(cell_type = sub(".*_", "", cell_id)) %>%
+  ggplot(aes(cell_type, projection_score, fill = cell_type)) + 
+  geom_boxplot(outlier.size = .3,outlier.shape = 1) +
+  theme(axis.text.x=element_text(angle=90, hjust=1,vjust=.5,size=8),
+        legend.position="none",
+        axis.title.y=element_text(size=8),
+        axis.text.y=element_text(size=8))+
+  scale_fill_manual(values=palette)+
+  labs(x=c(), y="projection score")
+
+SF1_2
+```
+
+
+```{r figs1c, fig.width=3,fig.height=8/3}
+
+df <- read.delim(file.path(git_path,"Figures/data/summary_published_BM.tsv"))
+
+order_datasets <- c("this_study_aged",
+                    "this_study_immune.aged",
+                    "tabula_scRNAseq",
+                    "haas_scRNAseq",
+                    "zhang_human_scRNAseq", 
+                    "bucher_FACS_aged",
+                    "bucher_FACS_immune.aged")
+
+cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "darkred")
+
+
+SF1_3 <- df %>%
+  dplyr::select(-tabula_scRNAseq_n , -zhang_human_scRNAseq_n, -haas_scRNAseq_n,-bucher_FACS_aged,-bucher_FACS_immune.aged) %>%
+  pivot_longer(cols=-cell_type, names_to="dataset", values_to="pct_cells") %>%
+  mutate(dataset=factor(dataset, levels=rev(order_datasets))) %>%
+  ggplot(aes(dataset, pct_cells, fill =cell_type)) + geom_bar(stat="identity") +
+  scale_fill_manual(values = cbp1)+
+  labs(x=c())+ylab("% cells")+theme(
+    legend.key.width = unit(.05,"in"),
+    legend.key.height = unit(.15,"in"),
+    legend.position = "top",
+    legend.title = element_blank(),
+    axis.text.x=element_text(angle=90,hjust=1,vjust=.5, size=8),
+    axis.text.y=element_text(size=8),
+    axis.title.y = element_text(size=8),
+    legend.text=element_text(size=8))+
+  guides(fill=guide_legend(ncol=2))
+
+SF1_3
+
+```
+
+
+Plotting Hashtag in umap
+```{r hto, fig.width=8/3,fig.height=3}
+
+# raw <- readRDS(file.path(git_path, "sc-batch-analysis/out_rds/sobj_unfiltered.rds"))
+# DefaultAssay(raw) <- "HTO"
+# sample_df <- read.delim(file.path(git_path, "sc-batch-analysis/all_samples.txt"), header=T)
+# 
+# raw <- ScaleData(raw, features = row.names(raw),
+#                   verbose = FALSE) %>%
+#   RunPCA(features = rownames(.), approx = FALSE) %>%
+#   FindNeighbors(dims=1:length(unique(sample_df$multiplex)), verbose=FALSE) %>%
+#   RunUMAP(dims=1:length(unique(sample_df$multiplex)), verbose=FALSE, reduction.name='HTOumap')
+# saveRDS(raw, file.path(git_path, "Figures/data/sobj_hto.rds"))
+
+SF1_hto_u <- DimPlot(raw, group.by='hash.ID', reduction='HTOumap',label.size=.5,pt.size=.1)  +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_blank(),
+        axis.title = element_text(size = 8), 
+        axis.text = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.title = element_blank(),
+        strip.text.x = element_text(size = 8),
+        legend.key.width = unit(.05,"in"),
+        legend.key.height = unit(.15,"in"),
+        legend.position = "top") + NoAxes() +
+  guides(colour=guide_legend(ncol=4,override.aes = list(size=2)))
+
+# add the umap_label
+
+SF1_hto <- SF1_hto_u +  
+  annotate(geom="segment", x = -15, y = -12, xend = -10.5, yend = -12, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = - 15, y = -13, label = "UMAP1", size=3,hjust = "left") +
+  annotate(geom="segment", x = -15, y = -12, xend = -15, yend = -8, 
+           arrow = arrow(length = unit(1, "mm"), type="closed") ) +
+  annotate(geom = "text", x = -17, y = -12, angle=90, size=3,label = "UMAP2", hjust = "left") 
+
+SF1_hto
+```
+
+
+Supplement Figure 1 paper
+```{r supplf1, fig.width = 10.5, fig.height = 9.5}
+
+(wrap_elements(uu_SF)  + wrap_elements(SF1_1)) /  
+  (wrap_elements(SF1_hto) + wrap_elements(SF1_2) + wrap_elements(SF1_3)) +
+  plot_layout(heights =c(1,.8))+
+  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
+
+if (file.exists(file.path(figure_out_path,"SFig1.pdf"))){
+  try(ggsave(file.path(figure_out_path,"SFig1.pdf"), device = cairo_pdf,width=10.5,height=9.5), silent=T)
+  warning("file not written, please close file in the other application and rerun.")
+} else {
+  ggsave(file.path(figure_out_path,"SFig1.pdf"), device = cairo_pdf,width=10.5,height=9.5)
+}
+
+
+```
+
+```{r sessionInfo}
+
+sessionInfo()
+```
