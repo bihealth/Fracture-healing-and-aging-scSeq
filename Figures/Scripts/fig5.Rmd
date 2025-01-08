@@ -70,9 +70,9 @@ sobj$Age_raw<-Idents(sobj)
 add_meta_strain <- sobj[[]] %>%
   tibble::rownames_to_column("cells") %>%
   select(cells, Age_raw) %>%
-  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
-                       ifelse(Age_raw=="26w_nonSPF", "Immune-aged", 
-                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "12w Y",
+                       ifelse(Age_raw=="26w_nonSPF", "26w IE", 
+                              ifelse(Age_raw=="26w_SPF", "26w NE", NA)))) %>%
   select(cells, strain) %>%
   tibble::column_to_rownames("cells")
 
@@ -152,7 +152,7 @@ lgenes <- lapply(genes_reduced, function(x) x$gene_name)
 
 res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
 
-res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-3 & AUC > .65))
+res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-3 & AUC > .75))
 
 
 ```
@@ -206,7 +206,7 @@ interferon_up <- DF %>%
                      legend.title = element_text(size = 8),
                      strip.text.x = element_blank()) + 
     labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
-  ggtitle("Immune-aged: hematoma"))
+  ggtitle("26w IE: hematoma"))
 
 ```
 
@@ -259,7 +259,7 @@ celltypes <- c("Monocytes", "Neutrophils", "B Cells")
 
 sfig5a <- sobj[[]] %>%
   select(strain, compartments, CellTypes, Interferon_gene_score1 , timepoint ) %>%
-  filter(strain=="Immune-aged" & compartments=="Hematoma" ) %>%
+  filter(strain=="26w IE" & compartments=="Hematoma" ) %>%
   filter(CellTypes %in% celltypes) %>%
   filter(!is.na(Interferon_gene_score1 )) %>%
   ggplot(aes(timepoint, Interferon_gene_score1 , colour=timepoint))+
@@ -298,12 +298,12 @@ genes_of_interest_monocyte <- c("Ifih1" , "Ifi35", "Dhx58", "Parp12", "Irf7", "I
 
 Idents(sobj) <- "CellTypes"
 
-levs <- c("Young_2days",
-        "Young_5days",
-        "Aged_2days",
-        "Aged_5days",
-        "Immune-aged_2days",
-        "Immune-aged_5days")
+levs <- c("12w Y_2days",
+        "12w Y_5days",
+        "26w NE_2days",
+        "26w NE_5days",
+        "26w IE_2days",
+        "26w IE_5days")
 
 md <- sobj[[]] %>%
   tibble::rownames_to_column("cells") %>%
@@ -467,7 +467,7 @@ interferon_up <- DF %>%
                      legend.title = element_text(size = 8),
                      strip.text.x = element_blank()) + 
     labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
-  ggtitle("Aged: Hematoma"))
+  ggtitle("26w NE: Hematoma"))
 
 ```
 
@@ -519,7 +519,7 @@ interferon_up <- DF %>%
                      legend.title = element_text(size = 8),
                      strip.text.x = element_blank()) + 
     labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
-  ggtitle("Young: Hematoma"))
+  ggtitle("12w Y: Hematoma"))
 
 ```
 
@@ -570,7 +570,7 @@ interferon_up <- DF %>%
                      legend.text = element_text(size =8),
                      legend.title = element_text(size = 8),
                      strip.text.x = element_blank()) + 
-    labs(title = "",x = "log2FoldChange (Aged vs. Immune-aged)") +
+    labs(title = "",x = "log2FoldChange (26w NE vs. 26w IE)") +
   ggtitle("Hematoma: 2 days"))
 
 ```
@@ -622,7 +622,7 @@ interferon_up <- DF %>%
                      legend.text = element_text(size =8),
                      legend.title = element_text(size = 8),
                      strip.text.x = element_blank()) + 
-    labs(title = "",x = "log2FoldChange (Immune-aged vs Young)") +
+    labs(title = "",x = "log2FoldChange (26w IE vs 12w Y)") +
   ggtitle("Hematoma: 2 days"))
 
 ```

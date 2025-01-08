@@ -82,9 +82,9 @@ sobj$Age_raw<-Idents(sobj)
 add_meta_strain <- sobj[[]] %>%
   tibble::rownames_to_column("cells") %>%
   select(cells, Age_raw) %>%
-  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
-                       ifelse(Age_raw=="26w_nonSPF", "Immune-aged", 
-                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "12w Y",
+                       ifelse(Age_raw=="26w_nonSPF", "26w IE", 
+                              ifelse(Age_raw=="26w_SPF", "26w NE", NA)))) %>%
   select(cells, strain) %>%
   tibble::column_to_rownames("cells")
 
@@ -121,7 +121,7 @@ df = sobj@meta.data %>%  dplyr::group_by(sample, timepoint,strain,compartments,C
 df_final= df %>% mutate(n=ifelse(is.na(n), 0, n)) %>% 
   mutate(p =n/sum(n)*100) %>% 
   filter(CellTypes %in% c("B Cells")) %>% #filter(Age_raw != 'Aged',  Age_raw != 'ImmunoAged') %>%
-  mutate(strain=factor(strain, levels=c("Young", "Aged", "Immune-aged")))
+  mutate(strain=factor(strain, levels=c("12w Y", "26w NE", "26w IE")))
 
 s1<-ggplot(df_final, aes(x = timepoint, y = p)) +
   geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape=1, size=3) +
@@ -157,7 +157,7 @@ df = sobj@meta.data %>%
 df_final= df %>% mutate(n=ifelse(is.na(n), 0, n)) %>% 
   mutate(p =n/sum(n)*100) %>% 
   filter(CellTypes %in% c("B Cells")) %>%
-  mutate(strain=factor(strain, levels=c("Young", "Aged", "Immune-aged")))
+  mutate(strain=factor(strain, levels=c("12w Y", "26w NE", "26w IE")))
 
 s2<-ggplot(df_final, aes(x = timepoint, y = p)) + 
   geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape=1, size=3) +
@@ -192,7 +192,7 @@ df = sobj@meta.data %>%
 df_final= df %>% 
   mutate(n=ifelse(is.na(n), 0, n)) %>% 
   mutate(p =n/sum(n)*100) %>% filter(CellTypes %in% c("B Cells")) %>%
-  mutate(strain=factor(strain, levels=c("Young", "Aged", "Immune-aged")))
+  mutate(strain=factor(strain, levels=c("12w Y", "26w NE", "26w IE")))
 
 s3<-ggplot(df_final, aes(x = timepoint, y = p)) +
   geom_point(aes(color = timepoint), position=position_jitterdodge(jitter.width = .2), shape=1, size=3) +
@@ -242,7 +242,7 @@ t <- df_final %>%
   rename(timepoint=time_rep, "hematoma"=fx,"proximal"=proximal,)%>%
   ggtexttable(theme = table_theme,rows = NULL)  
 
-t<- tab_add_title(t,text = "Immune-aged: cell numbers", face = "bold", size = 8)   
+t<- tab_add_title(t,text = "26w IE: cell numbers", face = "bold", size = 8)   
 t
 ```
 
@@ -256,7 +256,7 @@ DefaultAssay(sobj) <- "RNA"
 Idents(sobj) <- sobj$CellTypes
 g1_untreat <- WhichCells(sobj, idents = c("B Cells"))
 
-p3<-subset(sobj, strain=="Immune-aged" & timepoint=="2days" & compartments=="Hematoma") %>%
+p3<-subset(sobj, strain=="26w IE" & timepoint=="2days" & compartments=="Hematoma") %>%
   DimPlot(label=F, group.by="CellTypes",pt.size = .2, cells.highlight= list(g1_untreat),sizes.highlight=.2)+ 
   theme(text = element_text(family = "Arial"),
         plot.title = element_text(size = 8,face="bold"),
@@ -268,7 +268,7 @@ p3<-subset(sobj, strain=="Immune-aged" & timepoint=="2days" & compartments=="Hem
         strip.text.x = element_text(size = 8),
         legend.position = "top",
         legend.justification = "center") + 
-  labs(title = "Immune-aged: hematoma, 2 days")+
+  labs(title = "26w IE: hematoma, 2 days")+
   scale_color_discrete(
     labels = c("Unselected" = "All Cells", 
                "Group_1" = "B Cells"),type=c("grey","dodgerblue3"))  & 
@@ -287,7 +287,7 @@ p3
 
 ```{r p4, fig.width = 8/2, fig.height = 3}
 
-p4 <- subset(sobj, strain=="Immune-aged" & timepoint=="5days" & compartments=="Hematoma" ) %>%
+p4 <- subset(sobj, strain=="26w IE" & timepoint=="5days" & compartments=="Hematoma" ) %>%
   DimPlot(label=F, group.by="CellTypes",pt.size = .2, cells.highlight= list(g1_untreat),sizes.highlight=.2)+
   theme(text = element_text(family = "Arial"),
         plot.title = element_text(size = 8,face="bold"),
@@ -299,7 +299,7 @@ p4 <- subset(sobj, strain=="Immune-aged" & timepoint=="5days" & compartments=="H
         strip.text.x = element_text(size = 8),
         legend.position = "top",
         legend.justification = "center") + 
-  labs(title = "Immune-aged: hematoma, 5 days")+
+  labs(title = "26w IE: hematoma, 5 days")+
   scale_color_discrete(
     labels = c("Unselected" = "All Cells", 
                "Group_1" = "B Cells"),type=c("grey","orange2"))  & 
@@ -480,8 +480,8 @@ delete.na <- function(DF, n=0) {
 my_comparisons <- list(c("Prox", "Hematoma"), c("Prox", "Dist"),  c("Hematoma", "Dist"))
 
 df = sobj@meta.data %>%  dplyr::group_by(sample,group, timepoint,strain,compartments,CellTypes,.drop = FALSE) %>%
-  filter(timepoint != '5days') %>%
-   mutate(strain=factor(strain, levels=c("Young", "Aged", "Immune-aged"))) %>%
+  #filter(timepoint != '5days') %>%
+   mutate(strain=factor(strain, levels=c("12w Y", "26w NE", "26w IE"))) %>%
  mutate(compartments=factor(compartments, levels=c("Prox", "Hematoma", "Dist"))) %>%
   #filter(strain != 'Aged',  strain != 'Immune-aged') %>%
   dplyr::summarize(n = n()) 
@@ -498,7 +498,7 @@ sF1<-ggplot(df_final, aes(x = compartments, y = p)) +
   geom_point(aes(color = compartments), position=position_jitterdodge(jitter.width = .2), shape=1, size=2)  +
   coord_cartesian(ylim=c(0,30)) + 
   stat_compare_means(comparisons =  my_comparisons,label="p.signif",method = "t.test",paired = T, hide.ns = FALSE,size=2) +
-  facet_wrap(~strain, ncol = 8, scales = "free_x")+
+  facet_wrap(~strain+timepoint, ncol = 8, scales = "free_x")+
   theme(axis.title = element_text(size = 8), 
         axis.text = element_text(size = 8, family = "Arial"),
         axis.text.x=element_blank(),
@@ -510,22 +510,22 @@ sF1<-ggplot(df_final, aes(x = compartments, y = p)) +
         strip.text.y = element_text(size = 8),
         plot.title = element_text(size = 8,face="bold", hjust = 0.5,))+
   scale_color_manual(name= "Mice age",values = c("blue","green","red")) + 
-  labs(title ="Day 2 all mice age \nB cells",x = c(color =''), y = 'Percentage of cells') 
+  labs(title ="Day 2 / Day5 all bone compartments comparisons \nB cells",x = c(color =''), y = 'Percentage of cells') 
 
 sF1
 
 ```
-supplement figure 2-2 new
+supplement figure mice age comparison
 
 ```{r sF2, fig.width = 15, fig.height = 3}
 
-########################## Day 5########################
-my_comparisons <- list(c("Prox", "Hematoma"), c("Prox", "Dist"),  c("Hematoma", "Dist"))
+
+my_comparisons <- list(c("12w Y", "26w NE"), c("12w Y", "26w IE"),  c("26w NE", "26w IE"))
 
 df = sobj@meta.data %>%  dplyr::group_by(sample, timepoint,strain,compartments,CellTypes,.drop = FALSE) %>%
-  #filter(compartments != 'Dist',  compartments != 'Hematoma') %>%
-  filter(timepoint != '2days') %>%
-   mutate(strain=factor(strain, levels=c("Young", "Aged", "Immune-aged"))) %>%
+  #filter(compartments != 'Dist',  compartments != 'Prox') %>%
+  #filter(timepoint != '2days') %>%
+   mutate(strain=factor(strain, levels=c("12w Y", "26w NE", "26w IE"))) %>%
  mutate(compartments=factor(compartments, levels=c("Prox", "Hematoma", "Dist"))) %>%
   #filter(strain != 'Aged',  strain != 'Immune-aged') %>%
   dplyr::summarize(n = n()) 
@@ -539,12 +539,12 @@ df_final1 = df %>%
 ######### remove Na in data ###########
 df_final<-delete.na(df_final1)
 
-sF2<-ggplot(df_final, aes(x = compartments, y = p)) +
-  geom_point(aes(color = compartments), position=position_jitterdodge(jitter.width = .2), shape=1, size=2) +
+sF2<-ggplot(df_final, aes(x = strain, y = p)) +
+  geom_point(aes(color = strain), position=position_jitterdodge(jitter.width = .2), shape=1, size=2) +
   coord_cartesian(ylim=c(0,30))+
   stat_compare_means(comparisons = my_comparisons,label="p.signif",
-                     method = "t.test", hide.ns = FALSE,size=2,paired = T) +
-  facet_wrap(~strain, ncol = 8, scales = "free_x") +
+                     method = "t.test", hide.ns = FALSE,size=2,paired = F) +
+  facet_wrap(~compartments+timepoint, ncol = 8, scales = "free_x") +
   theme(axis.title = element_text(size = 8), 
         axis.text = element_text(size = 8, family = "Arial"),
         axis.text.x=element_blank(),
@@ -555,8 +555,8 @@ sF2<-ggplot(df_final, aes(x = compartments, y = p)) +
         strip.text.x = element_text(size = 8),
         strip.text.y = element_text(size = 8),
         plot.title = element_text(size = 8,face="bold", hjust = 0.5,))+
-  scale_color_manual(name= "Mice age",values = c("blue","green","red")) + 
-  labs(title ="Day 5 all mice age \nB cells",x = c(color =''), y = 'Percentage of cells') 
+  scale_color_manual(name= "Mice age",values = c("dodgerblue4","darkgreen","darkred")) + 
+  labs(title ="Day 2 / Day 5 all mice age comparisons \nB Cells",x = c(color =''), y = 'Percentage of cells') 
 
 sF2
 
@@ -569,6 +569,7 @@ SFigure 2 paper
   plot_layout(guides="collect")+
   plot_annotation(tag_levels = 'A') &
   theme(legend.position = "bottom",plot.tag = element_text(size = 8,face = "bold",hjust = -.5, vjust = 0))
+
 
 if (file.exists(file.path(figure_out_path,"SFig2.pdf"))){
   try(ggsave(file.path(figure_out_path,"SFig2.pdf"), device = cairo_pdf,width=8,height=5.5), silent=T)

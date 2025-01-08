@@ -201,7 +201,7 @@ ps4_base<-FeaturePlot(day2,features = "pseudotime_lin1",reduction = 'umap') +
         strip.text.x = element_text(size = 8),
         legend.position = "top",
         legend.justification = "center") + 
-  labs(title = "Immune-aged: hematoma, 2 days") + 
+  labs(title = "26w IE: hematoma, 2 days") + 
   NoAxes()
 
 ps4 <- ps4_base + annotate(geom="segment", x = -12, y = -7, xend = -7.5, yend = -7, 
@@ -238,7 +238,7 @@ ps5_base<-FeaturePlot(day5,features = "pseudotime_lin1",reduction = 'umap') +
         strip.text.x = element_text(size = 8),
         legend.position = "top",
         legend.justification = "center") + 
-  labs(title = "Immune-aged: hematoma, 5 days") + 
+  labs(title = "26w IE: hematoma, 5 days") + 
   NoAxes()
 
 ps5 <- ps5_base + annotate(geom="segment", x = -13, y = -7, xend = -8.5, yend = -7, 
@@ -257,9 +257,9 @@ Fig4d: boxplot all mouse groups, from HSCs to mature B cells (slingshot)
 
 my_comparisons <- list(c("2days", "5days"))
 
-labs <- c("Young"="Young",
-          "Aged"="Aged",
-          "ImmunoAged"="Immune-\naged")
+labs <- c("Young"="12w Y",
+          "Aged"="26w NE",
+          "ImmunoAged"="26w IE")
 
 fig4d<- sub[[]] %>%
   subset(compartments == "Hematoma") %>%
@@ -324,7 +324,7 @@ fig4e<- sub[[]] %>%
         strip.text.y = element_text(size = 8),
         plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
   scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
-  labs(title ="Hematoma immune-aged (slingshot)", x = c(color =''), y = 'Pseudotime') 
+  labs(title ="Hematoma 26w IE (slingshot)", x = c(color =''), y = 'Pseudotime') 
 
 fig4e
 ```
@@ -357,9 +357,9 @@ SFig4a: boxplot all mouse groups, from HSCs to mature B cells (slingshot)
 
 my_comparisons <- list(c("2days", "5days"))
 
-labs <- c("Young"="Young",
-          "Aged"="Aged",
-          "ImmunoAged"="Immune-\naged")
+labs <- c("Young"="12w Y",
+          "Aged"="26w NE",
+          "ImmunoAged"="26w IE")
 
 sf4_1<- sub[[]] %>%
   subset(compartments == "Prox") %>%
@@ -392,9 +392,9 @@ SFig4b: boxplot all mouse groups, from HSCs to mature B cells (slingshot)
 
 my_comparisons <- list(c("2days", "5days"))
 
-labs <- c("Young"="Young",
-          "Aged"="Aged",
-          "ImmunoAged"="Immune-\naged")
+labs <- c("Young"="12w Y",
+          "Aged"="26w NE",
+          "ImmunoAged"="26w IE")
 
 sf4_2<- sub[[]] %>%
   subset(compartments == "Dist") %>%
@@ -497,6 +497,7 @@ here we use Monocle3-calculated pseudotime values. for the whole monocle analysi
 ```{r sf35, fig.width = 8/2, fig.height = 3}
 
 ps <- read.delim(file.path(git_path,"Figures/data/monocle_pseudotime.tsv"), header=T)%>%
+
   tibble::column_to_rownames("cell_id")
 
 sub <- AddMetaData(sub, metadata=ps)
@@ -528,7 +529,7 @@ boxplot monocle
 
 my_comparisons <- list(c("2days", "5days"))
 
-labs <- c("Young"="Young","Aged"="Aged", "ImmunoAged"="Immune-aged")
+labs <- c("Young"="12w Y","Aged"="26w NE", "ImmunoAged"="26w IE")
 
 SF3_6<-sub[[]] %>%
   subset(compartments == "Hematoma") %>%
@@ -592,7 +593,7 @@ sf4e<- sub[[]] %>%
         strip.text.y = element_text(size = 8),
         plot.title = element_text(size = 8,face="bold",hjust = 0.5,))+
   scale_color_manual(name= "Time",values = c("dodgerblue3","orange2")) + 
-  labs(title ="Hematoma immune-aged (Monocle3)", x = c(color =''), y = 'Pseudotime') 
+  labs(title ="Hematoma 26w IE (Monocle3)", x = c(color =''), y = 'Pseudotime') 
 
 sf4e
 ```
@@ -605,7 +606,6 @@ Supplement Figure 4
   (wrap_elements(sf4e)+ plot_spacer() ) +
   plot_annotation(tag_levels = 'A') &
   theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
-
 
 if (file.exists(file.path(figure_out_path,"SFig4.pdf"))){
   try(ggsave(file.path(figure_out_path,"SFig4.pdf"), device = cairo_pdf,width=8,height=9), silent=T)

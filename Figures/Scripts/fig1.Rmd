@@ -82,9 +82,9 @@ sobj$Age_raw<-Idents(sobj)
 add_meta_strain <- sobj[[]] %>%
   tibble::rownames_to_column("cells") %>%
   select(cells, Age_raw) %>%
-  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
-                       ifelse(Age_raw=="26w_nonSPF", "Immune_aged", 
-                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "12w Y",
+                       ifelse(Age_raw=="26w_nonSPF", "26w IE", 
+                              ifelse(Age_raw=="26w_SPF", "26w NE", NA)))) %>%
   select(cells, strain) %>%
   tibble::column_to_rownames("cells")
 
@@ -255,8 +255,7 @@ f4
 ```{r svg, fig.width =8, fig.height = 10}
 
 # read svg image
-fig1A <- image_read(file.path(git_path,"Figures/images/Fig1A_correct_with_n.svg"))
-
+fig1A <- image_read(file.path(git_path,"Figures/images/fig1a.svg"))
 # place svg image
 a <- ggdraw() + 
   draw_image(fig1A,hjust=.05,vjust=0.55,width=1,height=1, scale=2.5) 
@@ -377,8 +376,8 @@ SF1_2
 
 df <- read.delim(file.path(git_path,"Figures/data/summary_published_BM.tsv"))
 
-order_datasets <- c("this_study_aged",
-                    "this_study_immune.aged",
+order_datasets <- c("this_study_26w_NE",
+                    "this_study_26w_IE",
                     "tabula_scRNAseq",
                     "haas_scRNAseq",
                     "zhang_human_scRNAseq", 

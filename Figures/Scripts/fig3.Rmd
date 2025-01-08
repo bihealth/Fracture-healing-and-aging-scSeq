@@ -67,9 +67,9 @@ sobj$Age_raw<-Idents(sobj)
 add_meta_strain <- sobj[[]] %>%
   tibble::rownames_to_column("cells") %>%
   select(cells, Age_raw) %>%
-  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "Young",
-                       ifelse(Age_raw=="26w_nonSPF", "Immune-aged", 
-                              ifelse(Age_raw=="26w_SPF", "Aged", NA)))) %>%
+  mutate(strain=ifelse(Age_raw=="12w_nonSPF", "12w Y",
+                       ifelse(Age_raw=="26w_nonSPF", "26w IE", 
+                              ifelse(Age_raw=="26w_SPF", "26w NE", NA)))) %>%
   select(cells, strain) %>%
   tibble::column_to_rownames("cells")
 
@@ -180,6 +180,7 @@ library(tmod)
 
 
 tmod_mm <- readRDS(file.path(git_path,"Figures/data/tmod_mm.rds"))
+
 df2tmod <- function(df, gene_id_col=ncol(df), module_id_col=1, module_title_col=2) {
 
   require(tmod, quietly=TRUE)
@@ -220,7 +221,7 @@ lgenes <- lapply(genes_reduced, function(x) x$gene_name)
 
 res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
 
-res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-3 & AUC > .65))
+res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-3 & AUC > .75))
 
 
 ```
@@ -257,7 +258,7 @@ DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
                      legend.title = element_text(size = 8),
                      strip.text.x = element_blank()) + 
     labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
-  ggtitle("Immune-aged: hematoma"))
+  ggtitle("26w IE: hematoma"))
 
 ```
 
@@ -293,7 +294,7 @@ DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
                      legend.title = element_text(size = 8),
                      strip.text.x = element_blank()) + 
     labs(title = "",x = "log2FoldChange (5 days vs. 2 days)")+
-  ggtitle("Aged: hematoma"))
+  ggtitle("26w NE: hematoma"))
 
 ```
 
@@ -330,7 +331,7 @@ DF$direction[(DF$log2FoldChange  < (-0.5) & DF$padj < 0.1)] <- "down"
                      legend.title = element_text(size = 8),
                      strip.text.x = element_blank()) + 
     labs(title = "",x = "log2FoldChange (5 days vs. 2 days)") +
-  ggtitle("Young: hematoma"))
+  ggtitle("12w Y: hematoma"))
 
 ```
 
@@ -374,7 +375,7 @@ fig3b <- ggPanelplot(res.tmod.filtered, sgenes = sgenes,q_cutoff = 1e-7,cluster=
         legend.text = element_text(size =8),
         legend.title = element_text(size = 8),
         strip.text.x = element_blank()) + 
-  labs(title = "Immune-aged: \nhematoma, \n5 days vs 2 days")
+  labs(title = "26w IE: \nhematoma, \n5 days vs 2 days")
 fig3b
 ```
 
@@ -389,7 +390,7 @@ res <- split(res, f = res$contrast)
 genes <- lapply(res, function(x) x %>%
                   filter(!is.na(padj)) %>%
                   arrange(pvalue))
-genes_reduced <- genes["12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx"]
+genes_reduced <- genes["12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx"]
 
 lgenes <- lapply(genes_reduced, function(x) x$gene_name)
 
@@ -398,10 +399,10 @@ res.tmod <- lapply(lgenes, tmodCERNOtest, mset = tmod_mm)
 res.tmod.filtered <- lapply(res.tmod, function(x) subset(x, adj.P.Val < 1e-2 & AUC > .65))
 
 
-x <- genes_reduced$"12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx"
+x <- genes_reduced$"12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx"
 sgenes <- tmodDecideTests(g = x$gene_name, lfc = x$log2FoldChange, pval = x$padj, lfc.thr = 0.5, pval.thr = 0.1, mset = tmod_mm)
 
-names(sgenes) <- "12w_nonSPF_5days_distal_vs_12w_nonSPF_5days_fx"
+names(sgenes) <- "12w_nonSPF_5days_fx_vs_12w_nonSPF_2days_fx"
 sf3c <- ggPanelplot(res.tmod.filtered, sgenes = sgenes, q_cutoff = 1e-7,cluster=F) +
   theme(text = element_text(family = "Arial"),
         plot.title = element_text(size = 8,hjust = 0.5,),
@@ -411,7 +412,7 @@ sf3c <- ggPanelplot(res.tmod.filtered, sgenes = sgenes, q_cutoff = 1e-7,cluster=
         legend.text = element_text(size =8),
         legend.title = element_text(size = 8),
         strip.text.x = element_blank()) +
-  labs(title = "Young: \nhematoma, \n5 days vs 2 days")
+  labs(title = "12w Y: \nhematoma, \n5 days vs 2 days")
 sf3c
 ```
 
@@ -573,7 +574,7 @@ testdata <-subset(Downsample, idents = c("2days"))
 Idents(testdata)<-testdata$compartments
 test <-subset(testdata, idents = c("Hematoma"))
 Idents(test)<-test$strain
-Immunoaged <- subset(test, idents = c("Immune-aged"))
+Immunoaged <- subset(test, idents = c("26w IE"))
 Idents(Immunoaged)<-Immunoaged$CellTypes
 # Plot module scores bcells 2 days 
 fig3e<-FeaturePlot(Immunoaged,
@@ -588,7 +589,7 @@ fig3e<-FeaturePlot(Immunoaged,
         legend.title = element_text(size = 8),
         strip.text.x = element_text(size = 8),
         legend.position = "top",
-        legend.justification = "center") + labs(title = "Immune-aged: hematoma, 2 days") & NoAxes()
+        legend.justification = "center") + labs(title = "26w IE: hematoma, 2 days") & NoAxes()
 
 fig3e
 
@@ -598,7 +599,7 @@ testdata <-subset(Downsample, idents = c("5days"))
 Idents(testdata)<-testdata$compartments
 test <-subset(testdata, idents = c("Hematoma"))
 Idents(test)<-test$strain
-Immunoaged <- subset(test, idents = c("Immune-aged"))
+Immunoaged <- subset(test, idents = c("26w IE"))
 Idents(Immunoaged)<-Immunoaged$CellTypes
 # Plot module scores bcells 5 days 
 fig3f<-FeaturePlot(Immunoaged,
@@ -613,7 +614,7 @@ fig3f<-FeaturePlot(Immunoaged,
         legend.title = element_text(size = 8),
         strip.text.x = element_text(size = 8),
         legend.position = "top",
-        legend.justification = "center") + labs(title = "Immune-aged: hematoma, 5 days")  & NoAxes()
+        legend.justification = "center") + labs(title = "26w IE: hematoma, 5 days")  & NoAxes()
 
 fig3f
 ```
@@ -627,7 +628,7 @@ cols <- c("strain", "compartments", "CellTypes",  "timepoint", "B_cell_gene_scor
 
 fig3d <- sobj[[]] %>%
   select(all_of(cols)) %>%
-  filter(compartments=="Hematoma" & strain =="Immune-aged") %>%
+  filter(compartments=="Hematoma" & strain =="26w IE") %>%
   filter(CellTypes == "B Cells") %>%
   ggplot(aes(timepoint, B_cell_gene_score1, colour=timepoint))+
   geom_boxplot(fill="white",outlier.shape = NA)+
@@ -676,7 +677,7 @@ scores <- c("B_cell_gene_score1")
 
 sf3d <- sobj[[]] %>%
   select(all_of(cols)) %>%
-  filter(compartments=="Hematoma" & strain =="Immune-aged") %>%
+  filter(compartments=="Hematoma" & strain =="26w IE") %>%
   filter(CellTypes %in% celltypes) %>%
   pivot_longer(cols=all_of(scores), names_to="score_type", values_to="gene_module_score") %>%
   ggplot(aes(timepoint, gene_module_score, colour=timepoint))+
@@ -721,7 +722,6 @@ Generating Figure 3
   plot_annotation(tag_levels = 'A') &
   theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
 
-
 if (file.exists(file.path(figure_out_path,"fig3.pdf"))){
   try(ggsave(file.path(figure_out_path,"fig3.pdf"), device = cairo_pdf,width=8,height=9), silent=T)
   warning("file not written, please close file in the other application and rerun.")
@@ -736,11 +736,10 @@ Generating Suppl Figure 3
 ```{r, fig.width = 8, fig.height = 9}
 
 (wrap_elements(sf3a)  + wrap_elements(sf3b)) /
-  (wrap_elements(sf3c)  + plot_spacer())/
+  #(wrap_elements(sf3c)  + plot_spacer())/
   wrap_elements(sf3d)+
   plot_annotation(tag_levels = 'A') &
   theme(plot.tag = element_text(size = 8, face = "bold",hjust = -.5, vjust = 0))
-
 
 if (file.exists(file.path(figure_out_path,"SFig3.pdf"))){
   try(ggsave(file.path(figure_out_path,"SFig3.pdf"), device = cairo_pdf,width=8,height=9), silent=T)
