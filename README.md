@@ -22,22 +22,3 @@ wget "zenodo_link"
 To reproduce the figures run scripts in Figures/Scripts (fig1-5.Rmd). 
 
 
-
-SODAR project UUID: 7f96c4ce-3da8-4103-b9d4-5edf3f89b32f
-
-SODAR URL: [Fracture healing and aging scSeq](https://sodar.bihealth.org/project/7f96c4ce-3da8-4103-b9d4-5edf3f89b32f)
-
-CUBI gitlab URL: [https://gitlab.cubi.bihealth.org/functional-genomics/single-cell/fracture-healing-and-aging-scseq](https://gitlab.cubi.bihealth.org/functional-genomics/single-cell/fracture-healing-and-aging-scseq)
-
-HPC directory: [data/cephfs-1/work/groups/cubi/projects/2023-11-30_Fracture_healing_and_aging_scSeq_Mireille_Miha](https://hpc-portal.cubi.bihealth.org/pun/sys/dashboard/files/fs//data/cephfs-1/work/groups/cubi/projects/2023-11-30_Fracture_healing_and_aging_scSeq_Mireille_Miha)
-
-# Project status
-
-Project name: Fracture healing and aging scSeq
-
-Start date: 01.01.2023
-
-Current status: Active
-
-# Public datasets files
-None (yet).
