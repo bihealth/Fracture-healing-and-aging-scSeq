@@ -6,6 +6,19 @@ P.I.: Georg Duda, Dieter Beule, Katharina Schmidt-Bleek
 
 CUBI contact e-mail: mireille.ngokingha-tchouto@charite.de and miha.milek@bih-charite.de
 
+# Quick start
+Get the Seurat object from zenodo
+```
+git clone "repo"
+cd Figures/data
+wget "zenodo_link"
+
+
+```
+To reproduce the figures run scripts in Figures/Scripts (fig1-5.Rmd). 
+
+
+
 SODAR project UUID: 7f96c4ce-3da8-4103-b9d4-5edf3f89b32f
 
 SODAR URL: [Fracture healing and aging scSeq](https://sodar.bihealth.org/project/7f96c4ce-3da8-4103-b9d4-5edf3f89b32f)
