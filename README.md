@@ -9,6 +9,10 @@ CUBI contact e-mail: mireille.ngokingha-tchouto@charite.de and miha.milek@bih-ch
 # Quick start
 Get the Seurat object from zenodo
 ```
+
+conda create -n figures_bonehealing -f Figures/envs/monocle.yaml
+conda activate figures_bonehealing
+
 git clone "repo"
 cd Figures/data
 wget "zenodo_link"
