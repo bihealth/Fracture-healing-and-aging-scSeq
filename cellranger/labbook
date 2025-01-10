@@ -1,1 +1,0 @@
-Rscript ~/work/sc-sodar-fastq-cellranger-flow/scripts/make_directories.R --afile ../sample_sheet/a_fracture_healing_and_aging_scseq_transcription_profiling_nucleotide_sequencing.txt --incoming ../../../raw_data_sodar/libs/ --out libs

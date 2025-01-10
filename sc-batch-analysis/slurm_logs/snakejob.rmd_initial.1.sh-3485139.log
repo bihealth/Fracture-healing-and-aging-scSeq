@@ -1,334 +1,0 @@
-Building DAG of jobs...
-Using shell: /usr/bin/bash
-Provided cores: 2
-Rules claiming more threads will be scaled down.
-Provided resources: disk_mb=1000, disk_mib=954
-Select jobs to execute...
-
-[Thu Jan 25 17:09:39 2024]
-rule rmd_initial:
-    input: initial_analysis.Rmd, all_samples.txt
-    output: out/initial_analysis.html, out_rds/sobj.separate.cc.rds
-    jobid: 0
-    reason: Forced execution
-    resources: mem_mb=100G, disk_mb=1000, disk_mib=954, tmpdir=/fast/users/milekm_c/scratch/tmp, time=08:00:00, partition=highmem
-
-
-
-processing file: initial_analysis.Rmd
-  |                                                                              |                                                                      |   0%  |                                                                              |.                                                                     |   2%
-   inline R code fragments
-
-  |                                                                              |...                                                                   |   4%
-label: setup (with options) 
-List of 1
- $ include: logi FALSE
-
-  |                                                                              |....                                                                  |   6%
-  ordinary text without R code
-
-  |                                                                              |.....                                                                 |   8%
-label: print parameters
-  |                                                                              |.......                                                               |  10%
-  ordinary text without R code
-
-  |                                                                              |........                                                              |  12%
-label: print sample table
-  |                                                                              |.........                                                             |  13%
-  ordinary text without R code
-
-  |                                                                              |...........                                                           |  15%
-label: barcode ranks and empty drops (with options) 
-List of 2
- $ eval   : logi TRUE
- $ results: logi FALSE
-
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-  |                                                                              |............                                                          |  17%
-  ordinary text without R code
-
-  |                                                                              |.............                                                         |  19%
-label: plot knee plot per library (with options) 
-List of 4
- $ results   : logi FALSE
- $ fig.width : num 7
- $ fig.height: num 4
- $ eval      : logi TRUE
-
-  |                                                                              |...............                                                       |  21%
-  ordinary text without R code
-
-  |                                                                              |................                                                      |  23%
-label: plot knee plots all libraries (with options) 
-List of 3
- $ fig.width : num 8
- $ fig.height: num 4
- $ eval      : logi TRUE
-
-  |                                                                              |..................                                                    |  25%
-  ordinary text without R code
-
-  |                                                                              |...................                                                   |  27%
-label: get_data (with options) 
-List of 3
- $ fig.width : num 8
- $ fig.height: num 4
- $ results   : logi FALSE
-
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Genome matrix has multiple modalities, returning a list of matrices for this genome
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-Warning: Invalid name supplied, making object name syntactically valid. New object name is Antibody.Capture; see ?make.names for more details on syntax validity
-Warning: Keys should be one or more alphanumeric characters followed by an underscore, setting key from antibody.capture_ to antibodycapture_
-  |                                                                              |....................                                                  |  29%
-   inline R code fragments
-
-  |                                                                              |......................                                                |  31%
-label: organism_mito_ribo
-  |                                                                              |.......................                                               |  33%
-  ordinary text without R code
-
-  |                                                                              |........................                                              |  35%
-label: hashtag_demultiplexing (with options) 
-List of 2
- $ eval: logi TRUE
- $ echo: logi TRUE
-
-PC_ 1 
-Positive:  HTO4, HTO6, HTO5 
-Negative:  HTO1, HTO2, HTO3 
-PC_ 2 
-Positive:  HTO1, HTO5, HTO4 
-Negative:  HTO3, HTO2, HTO6 
-PC_ 3 
-Positive:  HTO3, HTO5, HTO6 
-Negative:  HTO1, HTO2, HTO4 
-PC_ 4 
-Positive:  HTO2, HTO5, HTO6 
-Negative:  HTO1, HTO3, HTO4 
-PC_ 5 
-Positive:  HTO5, HTO1, HTO3 
-Negative:  HTO6, HTO4, HTO2 
-Warning: The default method for RunUMAP has changed from calling Python UMAP via reticulate to the R-native UWOT using the cosine metric
-To use Python UMAP via reticulate, set umap.method to 'umap-learn' and metric to 'correlation'
-This message will be shown once per session
-  |                                                                              |..........................                                            |  37%
-  ordinary text without R code
-
-  |                                                                              |...........................                                           |  38%
-label: plot_hashes (with options) 
-List of 4
- $ eval      : logi TRUE
- $ echo      : logi TRUE
- $ fig.width : num 15
- $ fig.height: num 5
-
-Joining, by = "orig.ident_hto"
-  |                                                                              |............................                                          |  40%
-  ordinary text without R code
-
-  |                                                                              |..............................                                        |  42%
-label: meta (with options) 
-List of 2
- $ eval: logi FALSE
- $ echo: logi FALSE
-
-  |                                                                              |...............................                                       |  44%
-  ordinary text without R code
-
-  |                                                                              |................................                                      |  46%
-label: hashtag_demultiplexing_stats (with options) 
-List of 2
- $ eval: logi TRUE
- $ echo: logi TRUE
-
-  |                                                                              |..................................                                    |  48%
-  ordinary text without R code
-
-  |                                                                              |...................................                                   |  50%
-label: cell_count (with options) 
-List of 2
- $ eval: logi FALSE
- $ echo: logi FALSE
-
-  |                                                                              |....................................                                  |  52%
-  ordinary text without R code
-
-  |                                                                              |......................................                                |  54%
-label: stats_graphical (with options) 
-List of 2
- $ fig.width : num 12
- $ fig.height: num 6
-
-  |                                                                              |.......................................                               |  56%
-  ordinary text without R code
-
-  |                                                                              |........................................                              |  58%
-label: feature_scatter
-  |                                                                              |..........................................                            |  60%
-  ordinary text without R code
-
-  |                                                                              |...........................................                           |  62%
-label: process (with options) 
-List of 1
- $ message: logi TRUE
-
-  |                                                                              |............................................                          |  63%
-  ordinary text without R code
-
-  |                                                                              |..............................................                        |  65%
-label: check_dim
-  |                                                                              |...............................................                       |  67%
-   inline R code fragments
-
-  |                                                                              |................................................                      |  69%
-label: cell_count_filtered
-  |                                                                              |..................................................                    |  71%
-  ordinary text without R code
-
-  |                                                                              |...................................................                   |  73%
-label: plot_cc_scores (with options) 
-List of 2
- $ fig.height: num 4
- $ fig.width : num 7
-
-  |                                                                              |....................................................                  |  75%
-  ordinary text without R code
-
-  |                                                                              |......................................................                |  77%
-label: plot (with options) 
-List of 2
- $ fig.width : num 8
- $ fig.height: num 5
-
-  |                                                                              |.......................................................               |  79%
-  ordinary text without R code
-
-  |                                                                              |.........................................................             |  81%
-label: plot_clusters_cell_cycle (with options) 
-List of 2
- $ fig.height: num 4
- $ fig.width : num 7
-
-`summarise()` has grouped output by 'seurat_clusters'. You can override using
-the `.groups` argument.
-`summarise()` has grouped output by 'seurat_clusters'. You can override using
-the `.groups` argument.
-`summarise()` has grouped output by 'seurat_clusters'. You can override using
-the `.groups` argument.
-  |                                                                              |..........................................................            |  83%
-  ordinary text without R code
-
-  |                                                                              |...........................................................           |  85%
-label: fraction_display
-  |                                                                              |.............................................................         |  87%
-  ordinary text without R code
-
-  |                                                                              |..............................................................        |  88%
-label: write_rds
-  |                                                                              |...............................................................       |  90%
-  ordinary text without R code
-
-  |                                                                              |.................................................................     |  92%
-label: plot remaining knees (with options) 
-List of 4
- $ results   : logi FALSE
- $ fig.width : num 7
- $ fig.height: num 4
- $ eval      : logi TRUE
-
-  |                                                                              |..................................................................    |  94%
-  ordinary text without R code
-
-  |                                                                              |...................................................................   |  96%
-label: remaining knees comparative (with options) 
-List of 4
- $ results   : logi FALSE
- $ fig.width : num 8
- $ fig.height: num 7
- $ eval      : logi TRUE
-
-  |                                                                              |..................................................................... |  98%
-  ordinary text without R code
-
-  |                                                                              |......................................................................| 100%
-label: sessionInfo
-
-output file: initial_analysis.knit.md
-
-/data/cephfs-1/home/users/milekm_c/work/miniconda/envs/R-fixed-scba/bin/pandoc +RTS -K512m -RTS initial_analysis.knit.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output out/initial_analysis.html --lua-filter /data/cephfs-1/work/groups/cubi/users/milekm_c/miniconda/envs/R-fixed-scba/lib/R/library/rmarkdown/rmarkdown/lua/pagebreak.lua --lua-filter /data/cephfs-1/work/groups/cubi/users/milekm_c/miniconda/envs/R-fixed-scba/lib/R/library/rmarkdown/rmarkdown/lua/latex-div.lua --embed-resources --standalone --variable bs3=TRUE --section-divs --table-of-contents --toc-depth 3 --variable toc_float=1 --variable toc_selectors=h1,h2,h3 --variable toc_collapsed=1 --variable toc_smooth_scroll=1 --variable toc_print=1 --template /data/cephfs-1/work/groups/cubi/users/milekm_c/miniconda/envs/R-fixed-scba/lib/R/library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --number-sections --variable theme=bootstrap --mathjax --variable 'mathjax-url=https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' --include-in-header /fast/users/milekm_c/scratch/tmp/RtmpjfW1NW/rmarkdown-str3ba9055c54ae5d.html --variable code_folding=hide --variable source_embed=initial_analysis.Rmd --include-after-body /fast/users/milekm_c/scratch/tmp/RtmpjfW1NW/file3ba90575fb1f03.html --variable code_menu=1 
-[WARNING] This document format requires a nonempty <title> element.
-  Defaulting to 'initial_analysis.knit' as the title.
-  To specify a title, use 'title' in metadata or --metadata title="...".
-
-Output created: out/initial_analysis.html
-There were 14 warnings (use warnings() to see them)
-[Thu Jan 25 19:39:06 2024]
-Finished job 0.
-1 of 1 steps (100%) done

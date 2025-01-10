@@ -1,0 +1,684 @@
+---
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    toc: true
+    toc_float: true
+params:
+  title: "initial analysis report"
+  organism: "mouse"
+  sample_table: "samples.txt"
+  min_cells: 1
+  min_features: 250
+  mito_cutoff: 10
+  nFeature_cutoff: 5000
+  ribo_cutoff: 20
+  output_rds_dir: 'out_rds/'
+  mouse_rds: 'mouse_rds/'
+  initial_dims: 20
+  initial_resolution: 1.0
+title: |
+  | CUBI SCBA Single Cell Pipeline
+  | 
+  | `r params$title`
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, cache.lazy=FALSE, message=FALSE, warning=FALSE)
+
+suppressPackageStartupMessages(library(Seurat))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(gtools))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(hdf5r))
+suppressPackageStartupMessages(library(DropletUtils))
+
+options(future.globals.maxSize = 12 * 1024 * 1024^2)
+
+sample_df <- read.delim(params$sample_table, header = T)
+sample_df$library <- as.character(sample_df$library)
+sample_df$sample <- as.character(sample_df$sample)
+
+
+if (any(is.na(unique(sample_df$multiplex))) | any(unique(sample_df$multiplex)=="false") | any(unique(sample_df$multiplex) == FALSE) ){
+	multiplex_condition <- FALSE
+} else if (length(unique(sample_df$multiplex)) > 1){
+	multiplex_condition <- TRUE
+}	else {
+	stop("Something is wrong with the multiplex setup. Please modify the sample table.", call. = FALSE)
+}
+
+if (any(grepl("raw_file", colnames(sample_df)))){
+  raw_files_present <- TRUE
+} else {
+	raw_files_present <- FALSE
+}
+
+multiplex_hto <- any(grepl("[Tt]otal[Ss]eq", unique(sample_df$multiplex))) | any(grepl("HT[OS]", unique(sample_df$multiplex)))
+multiplex_cmo <- any(grepl("[Cc][Mm][Oo]", unique(sample_df$multiplex)))
+
+```
+
+# Analysis Parameters
+
+For this Seurat analysis, we used the following parameters:
+
+```{r print parameters}
+
+data.frame(parameter=names(params), value=sapply(names(params), function(x) params[[x]])) %>%
+  filter(parameter != "title") %>%
+  tibble::remove_rownames()
+
+```
+
+# Sample Table
+
+```{r print sample table}
+if (raw_files_present){
+  cols <- setdiff(colnames(sample_df), c("sample", "library", "file", "raw_file"))
+  
+  sample_df %>% 
+    relocate(sample, library, all_of(cols), file, raw_file)
+} else {
+  cols <- setdiff(colnames(sample_df), c("sample", "library", "file"))
+  sample_df %>% 
+    relocate(sample, library, all_of(cols), file)
+}
+  
+```
+
+
+# Analysis
+
+## Barcode rank plots
+
+The number of filtered cells as determined by Cellranger may deviate from the results shown below obtained by [emptyDrops](
+https://doi.org/10.1186/s13059-019-1662-y). For further analysis, we keep the Cellranger results as outlined below. 
+
+```{r barcode ranks and empty drops, eval = raw_files_present, results = F}
+
+read_raw <- function(raw_file){
+  tmp <- Read10X_h5(raw_file)
+  if (length(names(tmp))>1){
+  gex <- tmp[['Gene Expression']]
+  } else {
+  gex <- tmp
+  #gex <- gex[,1:min(ncol(gex), 2000)] # downsample to 2000 cells testing
+  }
+}
+
+l_raw_mtx <- lapply(unique(sample_df$raw_file), read_raw)
+
+names(l_raw_mtx) <- unique(sample_df$library)
+
+l_br <- lapply(l_raw_mtx, function(x) x %>%
+                 barcodeRanks) 
+
+l_br_data <- lapply(l_br, function(x) x %>%
+                      as.data.frame %>%
+                      arrange(rank))
+l_br_intercepts <- lapply(l_br, function(x) data.frame(knee=metadata(x)$knee,
+                                                       inflection=metadata(x)$inflection))
+
+
+l_ed <- lapply(l_raw_mtx, function(x) x %>%
+                 emptyDrops)
+
+is.cell <- lapply(l_ed, function(x) x %>%
+                    as.data.frame() %>%
+                    mutate(is.cell=ifelse(FDR <= 0.01, TRUE, FALSE )) %>%
+                    pull(is.cell))
+
+is.cell_count <- lapply(is.cell, function(x) x %>%
+                          which() %>%
+                          length()) 
+
+# qc of emptyDrops
+# Map(function(x,y) table(Limited=x$Limited, Significant=y), l_ed, is.cell)
+
+```
+
+### Per library
+A maximum of six plots are shown in this section. For a complete set of plots, see [Appendix].
+
+```{r plot knee plot per library, results = F,fig.width=7,fig.height=4, eval=raw_files_present}
+
+if (length(names(l_br_data))>6){
+  libs_to_plot_separate <- names(l_br_data)[1:6]
+} else {
+  libs_to_plot_separate <- names(l_br_data)
+}
+
+lapply(libs_to_plot_separate, function(x) ggplot(l_br_data[[x]], aes(rank, total))+
+         geom_point(shape=1,size=0.4)+
+         geom_line(aes(rank, fitted),colour = "red")+
+         geom_hline(aes(yintercept=l_br_intercepts[[x]]$knee, colour = paste0("knee=",l_br_intercepts[[x]]$knee)))+
+         geom_hline(aes(yintercept=l_br_intercepts[[x]]$inflection, colour = paste0("inflection=",l_br_intercepts[[x]]$inflection )))+
+         geom_vline(aes(xintercept=is.cell_count[[x]], colour = paste0("emptyDrops_cells=",is.cell_count[[x]])))+
+         scale_x_log10()+
+         scale_y_log10()+
+         scale_colour_manual(values=c("dodgerblue3", "orange3", "black"))+
+         ggtitle(x)+
+         xlab("Barcode rank")+
+         ylab("UMI counts")+
+         theme(legend.title=element_blank()))
+
+```
+
+### Comparative barcode rank plot 
+For clarity, a maximum of ten graphs are shown on this plot. For a a plot with all graphs for all libraries, see [Appendix].
+
+```{r plot knee plots all libraries, fig.width=8,fig.height=4, eval=raw_files_present}
+
+if (length(names(l_br_data))>10){
+  libs_to_plot_all <- names(l_br_data)[1:10]
+} else {
+  libs_to_plot_all <- names(l_br_data)
+}
+
+lapply(libs_to_plot_all, function(x) l_br_data[[x]] %>%
+         mutate(library=x)) %>%
+  bind_rows() %>%
+  ggplot(aes(rank, total, colour = library))+
+  geom_point(shape=1,size=0.4)+
+  scale_x_log10()+
+  scale_y_log10()+
+  xlab("Barcode rank")+
+  ylab("UMI counts")
+  
+```
+
+
+## Basic Statistics
+
+```{r get_data,fig.width=8,fig.height=4, results = F}
+
+read_cellranger <- function(h5_file, library) {
+  # h5_file <- sample_df$file[1]
+  # library <- sample_df$library[1]
+  tmp <- Read10X_h5(h5_file)
+  if(!is.null(names(tmp))){
+    modalities <- names(tmp)
+    dge <- tmp[['Gene Expression']]
+  } else {
+    modalities <- 'Gene Expression'
+    dge <- tmp
+    # dge <- dge[,1:min(ncol(dge), 2000)] # downsample to 2000 cells testing
+  }
+  sobj_unfiltered <- CreateSeuratObject(dge, project = library,
+                                        assay='RNA',min.cells=0,min.features=0)
+  sobj <- CreateSeuratObject(dge, project = library,
+                             assay='RNA',min.cells=params$min_cells,min.features=params$min_features)
+  if (multiplex_hto) {
+    cells_unfiltered <- colnames(sobj_unfiltered)
+    cells_filtered <- colnames(sobj) 
+    library_filter <- library
+    hts <- sample_df %>%
+      filter(library == library_filter) %>%
+      pull(multiplex)
+    sobj_unfiltered[['HTO']] <- CreateAssayObject(counts = tmp[['Antibody Capture']][hts,cells_unfiltered,drop=FALSE])
+    sobj[['HTO']] <- CreateAssayObject(counts = tmp[['Antibody Capture']][hts,cells_filtered,drop=FALSE])
+    
+    if (!all(row.names(tmp[['Antibody Capture']]) %in% unique(sample_df$multiplex))){
+      kept_acs <- row.names(tmp[['Antibody Capture']])[!row.names(tmp[['Antibody Capture']]) %in% unique(sample_df$multiplex)]
+      sobj_unfiltered[['Antibody Capture']] <- CreateAssayObject(counts = tmp[['Antibody Capture']][kept_acs,cells_unfiltered,drop=FALSE])
+      sobj[['Antibody Capture']] <- CreateAssayObject(counts = tmp[['Antibody Capture']][kept_acs,cells_filtered,drop=FALSE])  
+    }
+  } else if (!multiplex_hto & any(c('Antibody Capture') %in% modalities)){
+    sobj_unfiltered[['Antibody Capture']] <- CreateAssayObject(counts = tmp[['Antibody Capture']][TRUE,cells_unfiltered,drop=FALSE])
+    sobj[['Antibody Capture']] <- CreateAssayObject(counts = tmp[['Antibody Capture']][TRUE,cells_filtered,drop=FALSE]) 
+  }
+  return(list(modalities = modalities, sobj_unfiltered = sobj_unfiltered, sobj = sobj))
+}
+
+libraries <- sample_df %>% 
+  select(library, file) %>%
+  distinct() %>%
+  pull(library)
+
+files <- sample_df %>% 
+  select(library, file) %>%
+  distinct() %>%
+  pull(file)
+
+sobjs <- Map(read_cellranger, files, libraries)
+
+detected_modalities <- lapply(sobjs, function(x) x$modalities) %>% 
+  unlist() %>% 
+  unique()
+
+sobjs_unfiltered <- lapply(sobjs, function(x) x$sobj_unfiltered) 
+sobjs <- lapply(sobjs, function(x) x$sobj) 
+
+if (multiplex_hto) {
+  sobjs_unfiltered <- lapply(sobjs_unfiltered, function(sobj) {
+    sobj <- NormalizeData(sobj, normalization.method='CLR', assay='HTO', verbose=FALSE)
+    sobj <- HTODemux(sobj, assay='HTO', verbose=FALSE)
+    sobj
+    })
+  sobjs <- lapply(sobjs, function(sobj) {
+    sobj <- NormalizeData(sobj, normalization.method='CLR', assay='HTO', verbose=FALSE)
+    sobj <- HTODemux(sobj, assay='HTO', verbose=FALSE)
+    sobj
+    })
+}
+
+
+if (multiplex_cmo & length(sobjs)>1){
+  
+  sobj_unfiltered <- merge(sobjs_unfiltered[[1]],sobjs_unfiltered[2:length(unique(sample_df$sample))], add.cell.ids = unique(sample_df$sample) )
+  sobj <- merge(sobjs[[1]],sobjs[2:length(unique(sample_df$sample))], add.cell.ids = unique(sample_df$sample) )
+} else if (!multiplex_cmo & length(sobjs)>1){
+  
+  sobj_unfiltered <- merge(sobjs_unfiltered[[1]],sobjs_unfiltered[2:length(unique(sample_df$library))], add.cell.ids = unique(sample_df$library) )
+  sobj <- merge(sobjs[[1]],sobjs[2:length(unique(sample_df$library))], add.cell.ids = unique(sample_df$library) )
+} else if (length(sobjs)==1){
+  
+  sobj_unfiltered <- sobjs_unfiltered[[1]]
+  sobj <- sobjs[[1]]
+}
+
+
+filtered_cells <- nrow(sobj_unfiltered[[]]) - nrow(sobj[[]])
+perc_filtered_cells <- filtered_cells/nrow(sobj_unfiltered[[]])*100
+
+```
+
+The following modalities were detected in the data: `r detected_modalities`.
+
+Filtering by min_cells and min_features cutoffs results in loss of `r filtered_cells` (`r perc_filtered_cells` %) cells.
+
+```{r organism_mito_ribo}
+if (params$organism == "mouse"){
+
+sobj[['pct.mito']] <- PercentageFeatureSet(sobj, pattern='^mt-')
+sobj[['pct.ribo']] <- PercentageFeatureSet(sobj, pattern='^Rp[sl][0-9]*$')
+
+} else if (params$organism == "human"){
+  
+sobj[['pct.mito']] <- PercentageFeatureSet(sobj, pattern='^MT-')
+sobj[['pct.ribo']] <- PercentageFeatureSet(sobj, pattern='^RP[SL][0-9]*$')
+
+} else {
+  stop("Error: your organism is not supported. Only mouse or human for now.")
+}
+
+```
+
+```{r hashtag_demultiplexing, eval = multiplex_hto, echo = multiplex_hto}
+
+DefaultAssay(sobj) <- "HTO"
+sobj <- ScaleData(sobj, features = row.names(sobj), 
+                  verbose = FALSE) %>%
+  RunPCA(features = rownames(.), approx = FALSE) %>%
+  FindNeighbors(dims=1:length(unique(sample_df$multiplex)), verbose=FALSE) %>%
+  RunUMAP(dims=1:length(unique(sample_df$multiplex)), verbose=FALSE, reduction.name='HTOumap') 
+
+DimPlot(sobj, group.by='hash.ID', reduction='HTOumap')
+
+```
+
+A look at cell level statistics and metadata:
+
+```{r plot_hashes, eval = multiplex_hto, echo = multiplex_hto, fig.width=15, fig.height=5}
+VlnPlot(sobj, features=row.names(sobj), group.by='hash.ID',pt.size=0,ncol=length(unique(sample_df$multiplex)))
+
+dat<-cbind(sobj[[]], hto_exp=colSums(sobj[["RNA"]]@counts), hto_max=apply(sobj[["HTO"]]@counts, 2, max))
+ggplot(dat, aes(hash.ID,log10(hto_exp), fill=orig.ident))+geom_violin(scale = "area")+facet_wrap(~orig.ident,nrow=1)+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+Idents(sobj) <- "HTO_classification.global"
+
+# Keep only the singlets for further analysis
+
+sobj.singlet <- subset(sobj, idents = "Singlet")
+
+cell_df<-data.frame(names=row.names(sobj.singlet[[]]), orig.ident=sobj.singlet$orig.ident,
+                    hto=sobj.singlet$HTO_maxID)
+cell_df$orig.ident_hto <- paste0(cell_df$orig.ident, ";", cell_df$hto)
+
+sample_df$multiplex <- gsub("_", "-", sample_df$multiplex)
+sample_df$orig.ident_hto <- paste0(sample_df$library, ";", sample_df$multiplex)
+
+if (raw_files_present){
+   rows_df <-sample_df %>%
+     dplyr::select(-file, -raw_file) %>%
+     dplyr::right_join(cell_df) %>%
+     tibble::column_to_rownames("names") %>%
+     dplyr::select(-orig.ident_hto, -hto)
+ } else {
+rows_df <-sample_df %>%
+     dplyr::select(-file) %>%
+     dplyr::right_join(cell_df) %>%
+     tibble::column_to_rownames("names") %>%
+     dplyr::select(-orig.ident_hto, -hto)
+}
+rows_df<-rows_df[row.names(sobj.singlet[[]]),]
+
+sobj.singlet <- AddMetaData(sobj.singlet, metadata = rows_df)
+n_cells <- nrow(sobj.singlet@meta.data)
+head(sobj.singlet@meta.data, 7)
+
+```
+
+```{r meta, eval = !multiplex_condition, echo = !multiplex_condition}
+sobj[['library']] <- sobj[['orig.ident']]
+
+if (raw_files_present){
+  meta_data <- 
+    sobj[[]] %>% 
+    tibble::rownames_to_column("cell_id") %>%
+    dplyr::select(library, cell_id) %>%
+    left_join(sample_df) %>%
+    tibble::column_to_rownames("cell_id") %>%
+    dplyr::select(-file, -library, -raw_file)
+} else {
+  meta_data <- 
+    sobj[[]] %>% 
+    tibble::rownames_to_column("cell_id") %>%
+    dplyr::select(library, cell_id) %>%
+    left_join(sample_df) %>%
+    tibble::column_to_rownames("cell_id") %>%
+    dplyr::select(-file, -library)
+}
+  
+sobj <- AddMetaData(object = sobj, metadata = meta_data)
+
+n_cells <- nrow(sobj@meta.data)
+head(sobj@meta.data, 7)
+
+```
+
+
+Sample level statistics and metadata:
+
+```{r hashtag_demultiplexing_stats, eval = multiplex_hto, echo = multiplex_hto}
+
+paste0("After Cellranger filtering, ", nrow(sobj@meta.data), " cells with at least ",params$min_features, " mRNAs were obtained. Out of those ", nrow(sobj.singlet@meta.data), " (",round(nrow(sobj.singlet@meta.data)/nrow(sobj@meta.data)*100, digits=2), " %) were singlets. In the table below you can find metrics for each sample.")
+
+sobj <- sobj.singlet
+
+sobj.singlet@meta.data %>%
+  dplyr::group_by(sample) %>%
+  dplyr::summarise(ncells=n(),
+                   nGene=median(nFeature_RNA),
+                   nUMI=median(nCount_RNA),
+                   pct.mito=mean(pct.mito),
+                   pct.ribo=mean(pct.ribo))
+```
+
+
+```{r cell_count, eval = !multiplex_condition, echo = !multiplex_condition}
+
+paste0("After Cellranger filtering ", nrow(sobj@meta.data) ," cells with at least ", params$min_features ," mRNAs were obtained. In the table below you can find metrics for each sample.")
+
+sobj@meta.data %>%
+  dplyr::group_by(sample) %>%
+  dplyr::summarise(ncells=n(),
+                   nGene=median(nFeature_RNA),
+                   nUMI=median(nCount_RNA),
+                   pct.mito=mean(pct.mito),
+                   pct.ribo=mean(pct.ribo))
+
+```
+
+## Statistics for quality control
+
+Next, show some more statistics for quality control. This is useful to determine the cutoffs for number of mRNA per cell, as well as percent mitochondrial and ribosomal genes per cell. Consider re-running the analysis if these statistics suggest better cutoff values.
+### Metrics per sample
+
+```{r stats_graphical,fig.width=12,fig.height=6}
+ggplot(sobj@meta.data %>%
+         dplyr::select(sample, nCount_RNA, nFeature_RNA,
+                       pct.mito, pct.ribo) %>%
+         gather(metric,value,-sample),
+       aes(x=sample,y=value,fill=sample)) +
+  geom_boxplot(outlier.size=.5) +
+  facet_wrap(~metric,ncol=4,scales='free_y') +
+  theme_classic() +
+  theme(axis.text.x=element_blank(), legend.position = "bottom")
+```
+### Feature plot
+```{r feature_scatter}
+ggplot(sobj@meta.data %>% dplyr::arrange(pct.mito),
+       aes(x=nCount_RNA,y=nFeature_RNA,color=pct.mito)) +
+       geom_point()  +
+       theme_classic()
+```
+
+# Cell cycle regression and clustering
+
+Here, we compare two cell cycle scoring regression approaches in the standard Seurat pre-processing workflow. We try to address the following: 1. are cycling cells present in the data and will they significantly affect clustering? 2. does regression off cell cycle scores remove the cell cycle effects? 3. does the regression of difference in S and G2M scores perform better?
+
+## Top genes in principal components
+
+Display the genes in the first 10 principal components to understand if there are cell cycle genes present. 
+
+```{r process, message = TRUE}
+
+DefaultAssay(sobj) <- "RNA"
+
+if (params$organism == "mouse"){
+
+s.genes<-readRDS(file.path(params$mouse_rds, "s_genes_mouse.rds"))
+g2m.genes<-readRDS(file.path(params$mouse_rds, "g2m_genes_mouse.rds"))
+
+} else if (params$organism == "human"){
+  
+s.genes<-cc.genes$s.genes
+g2m.genes<-cc.genes$g2m.genes
+  
+} else {
+  stop("Error: your organism is not supported. Only mouse or human for now.")
+}
+
+sobj <- subset(sobj, (pct.mito < params$mito_cutoff) & (nFeature_RNA < params$nFeature_cutoff) & (pct.ribo < params$ribo_cutoff)) %>%
+  NormalizeData(normalization.method='LogNormalize',scale.factor=10000,verbose=FALSE) %>%
+  FindVariableFeatures(selection.method='vst',nfeatures=2000,verbose=FALSE) %>%
+  ScaleData(vars.to.regress=c('nCount_RNA'),verbose=FALSE)
+
+cat("showing genes in PCs without any cell cycle regression...", stdout())
+sobj <- RunPCA(sobj, features = VariableFeatures(sobj), ndims.print = 1:10, nfeatures.print = 10)
+
+sobj <- CellCycleScoring(sobj, s.features = s.genes, g2m.features = g2m.genes, set.ident = T)
+sobj$cc.diff <- sobj$S.Score - sobj$G2M.Score
+
+sobj <- sobj %>%
+  FindNeighbors(dims=1:params$initial_dims,verbose=FALSE) %>%
+  RunUMAP(dims=1:params$initial_dims,verbose=FALSE) %>%
+  FindClusters(resolution=params$initial_resolution, verbose=FALSE)
+
+sobj.separate.cc <- sobj %>%
+  ScaleData(vars.to.regress=c('S.Score','G2M.Score'),verbose=FALSE) 
+
+cat("showing genes in PCs with regression of separate G2M and S scores...", stdout())
+sobj.separate.cc <- RunPCA(sobj.separate.cc, features = VariableFeatures(sobj.separate.cc), ndims.print = 1:10, nfeatures.print = 10)
+
+sobj.separate.cc <- sobj.separate.cc %>%
+  FindNeighbors(dims=1:params$initial_dims,verbose=FALSE) %>%
+  RunUMAP(dims=1:params$initial_dims,verbose=FALSE) %>%
+  FindClusters(resolution=params$initial_resolution, verbose=FALSE)
+
+sobj.diff.cc <- sobj %>%
+  ScaleData(vars.to.regress=c('cc.diff'),verbose=FALSE)
+
+cat("showing genes in PCs with regression of difference in G2M and S scores...", stdout())
+sobj.diff.cc <- RunPCA(sobj.diff.cc, features = VariableFeatures(sobj.diff.cc), ndims.print = 1:10, nfeatures.print = 10)
+
+sobj.diff.cc <- sobj.diff.cc %>%
+  FindNeighbors(dims=1:params$initial_dims,verbose=FALSE) %>%
+  RunUMAP(dims=1:params$initial_dims,verbose=FALSE) %>%
+  FindClusters(resolution=params$initial_resolution, verbose=FALSE)
+
+```
+
+## Dimensionality of the data
+Check the dimensionality of the data.
+
+```{r check_dim}
+
+ElbowPlot(sobj)
+
+```
+## Final cell filtering
+
+Filtering of cells by number of mRNAs per cell and percentages of mitochondrial and ribosomal genes results in loss of `r round((1-nrow(sobj@meta.data)/n_cells)*100, digits = 2)` % cells, i.e. `r round(nrow(sobj@meta.data)/n_cells*100, digits =2)` % (n = `r nrow(sobj@meta.data)`) cells remain. 
+
+Final per sample statistics after filtering:
+
+```{r cell_count_filtered}
+
+sobj@meta.data %>%
+  dplyr::group_by(sample) %>%
+  dplyr::summarise(ncells=n(),
+                   nGene=median(nFeature_RNA),
+                   nUMI=median(nCount_RNA),
+                   pct.mito=mean(pct.mito),
+                   pct.ribo=mean(pct.ribo))
+
+```
+
+
+## Cell cycle scoring
+
+### Detected cell cyle phase vs score based on cell cycle genes
+```{r plot_cc_scores, fig.height=4, fig.width=7}
+
+sobj@meta.data %>%
+  dplyr::select(Phase, S.Score, G2M.Score) %>%
+  gather(score_type,score,-Phase) %>%
+  ggplot(aes(score_type, score, fill = Phase)) + geom_violin(scale = "count")
+```
+
+### Comparison of cell cycle regression approaches - UMAP
+
+```{r plot, fig.width=8, fig.height=5}
+
+# DimPlot(sobj, reduction='umap', group.by='sample') + ggtitle("no cell cycle regression")
+DimPlot(sobj, reduction='umap', group.by='Phase') + ggtitle("no cell cycle regression")
+
+# DimPlot(sobj.separate.cc, reduction='umap', group.by='sample') + ggtitle("separate S and G2M scores regressed")
+DimPlot(sobj.separate.cc, reduction='umap', group.by='Phase') + ggtitle("separate S and G2M scores regressed")
+
+# DimPlot(sobj.diff.cc, reduction='umap', group.by='sample') + ggtitle("difference in S and G2M scores regressed")
+DimPlot(sobj.diff.cc, reduction='umap', group.by='Phase') + ggtitle("difference in S and G2M scores regressed")
+
+```
+
+### Comparison of cell cycle regression approaches - fractions per cluster
+
+```{r plot_clusters_cell_cycle, fig.height=4, fig.width=7}
+sobj@meta.data %>%
+  dplyr::select(seurat_clusters, Phase) %>%
+  dplyr::group_by(seurat_clusters, Phase) %>%
+  dplyr::summarise(n=n()) %>%
+  dplyr::mutate(frac=n/sum(n)*100) %>%
+  ggplot(aes(seurat_clusters, frac, fill = Phase)) + geom_bar(stat = "identity") +
+  ylab("% cells in cluster") + 
+  ggtitle("no cell cycle regression")
+
+sobj.separate.cc@meta.data %>%
+  dplyr::select(seurat_clusters, Phase) %>%
+  dplyr::group_by(seurat_clusters, Phase) %>%
+  dplyr::summarise(n=n()) %>%
+  dplyr::mutate(frac=n/sum(n)*100) %>%
+  ggplot(aes(seurat_clusters, frac, fill = Phase)) + geom_bar(stat = "identity") +
+  ylab("% cells in cluster") + 
+  ggtitle("separate S and G2M scores regressed")
+
+sobj.diff.cc@meta.data %>%
+  dplyr::select(seurat_clusters, Phase) %>%
+  dplyr::group_by(seurat_clusters, Phase) %>%
+  dplyr::summarise(n=n()) %>%
+  dplyr::mutate(frac=n/sum(n)*100) %>%
+  ggplot(aes(seurat_clusters, frac, fill = Phase)) + geom_bar(stat = "identity") +
+  ylab("% cells in cluster") + 
+  ggtitle("difference in S and G2M scores regressed")
+
+```
+
+## Fraction of cell cycle phase cells according to G2M and S score.
+```{r fraction_display}
+no_reg <- sobj@meta.data %>%
+  dplyr::group_by(Phase) %>%
+  dplyr::summarise(n=n()) %>%
+  dplyr::mutate(pct_cell_cycle = round(n/sum(n)*100, digits=2)) %>%
+  dplyr::select(Phase, pct_cell_cycle)
+
+no_reg
+
+```
+
+Next, write seurat objects to be able to rapidly continue the analysis.
+
+```{r write_rds}
+
+dir.create(params$output_rds_dir, recursive = T, showWarnings = F)
+saveRDS(sobj_unfiltered, file.path(params$output_rds_dir, "sobj_unfiltered.rds"))
+saveRDS(sobj, file.path(params$output_rds_dir, "sobj.rds"))
+saveRDS(sobj.separate.cc, file.path(params$output_rds_dir, "sobj.separate.cc.rds"))
+saveRDS(sobj.diff.cc, file.path(params$output_rds_dir, "sobj.diff.cc.rds"))
+
+```
+
+
+# Appendix
+
+## Remaining set of barcode rank plots
+
+```{r plot remaining knees, results = F,fig.width=7,fig.height=4,eval = raw_files_present}
+if (length(unique(l_br_data))>6){
+  remaining_separate <- setdiff(names(l_br_data),libs_to_plot_separate)
+  
+  lapply(remaining_separate, function(x) ggplot(l_br_data[[x]], aes(rank, total))+
+           geom_point(shape=1,size=0.4)+
+           geom_line(aes(rank, fitted),colour = "red")+
+           geom_hline(aes(yintercept=l_br_intercepts[[x]]$knee, colour = paste0("knee=",l_br_intercepts[[x]]$knee)))+
+           geom_hline(aes(yintercept=l_br_intercepts[[x]]$inflection, colour = paste0("inflection=",l_br_intercepts[[x]]$inflection )))+
+           geom_vline(aes(xintercept=is.cell_count[[x]], colour = paste0("emptyDrops_cells=",is.cell_count[[x]])))+
+           scale_x_log10()+
+           scale_y_log10()+
+           scale_colour_manual(values=c("dodgerblue3", "orange3", "black"))+
+           ggtitle(x)+
+           xlab("Barcode rank")+
+           ylab("UMI counts")+
+           theme(legend.title=element_blank()))
+}
+
+```
+
+## Comparative barcode rank plot for all libraries
+
+```{r remaining knees comparative, results = F,fig.width=8,fig.height=7,eval = raw_files_present }
+
+if (length(unique(l_br_data))<=10){
+  print("A barcode rank plot for all libraries was already printed in the [Analysis] section")
+} else if (length(unique(l_br_data))>10){
+  
+  lapply(names(l_br_data), function(x) l_br_data[[x]] %>%
+           mutate(library=x)) %>%
+    bind_rows() %>%
+    ggplot(aes(rank, total, colour = library))+
+    geom_point(shape=1,size=0.4)+
+    scale_x_log10()+
+    scale_y_log10()+
+    xlab("Barcode rank")+
+    ylab("UMI counts") +
+    theme(legend.position = "bottom")
+}
+
+```
+
+
+
+
+```{r sessionInfo}
+
+sessionInfo()
+```

@@ -1,2 +1,0 @@
-cluster.1	cluster.3	interaction.type	LRscore
-C3	C3ar1	paracrine	0.52277749717778

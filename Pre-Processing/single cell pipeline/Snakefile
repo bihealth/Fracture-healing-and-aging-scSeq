@@ -1,0 +1,93 @@
+configfile: "config.yaml"
+
+if config['doublet_finder'] and config['common_report']:
+    target = config["output_initial_html"], config["output_df_html"], config["output_integration_html"], config["common_report_html"], config["output_rds_dir"] + config["input_df_object"], config["output_rds_dir"] + config["input_integration_object"]
+    output_initial = config["output_rds_dir"] + config["input_df_object"]
+    output_df = config["output_rds_dir"] + config["input_integration_object"]
+elif config['doublet_finder']:
+    target = config["output_initial_html"], config["output_df_html"], config["output_integration_html"], config["output_rds_dir"] + config["input_df_object"], config["output_rds_dir"] + config["input_integration_object"]
+    output_initial = config["output_rds_dir"] + config["input_df_object"]
+    output_df = config["output_rds_dir"] + config["input_integration_object"]
+elif config['common_report']:
+    target = config["output_initial_html"], config["output_integration_html"], config["common_report"], config["output_rds_dir"] + config["input_integration_object"]
+    output_initial = config["output_rds_dir"] + config["input_integration_object"]
+    output_df = 'None'
+else:
+    target = config["output_initial_html"], config["output_integration_html"], config["output_rds_dir"] + config["input_integration_object"]
+    output_initial = config["output_rds_dir"] + config["input_integration_object"]
+    output_df = 'None'
+rule all:
+    input: target
+rule rmd_initial:
+    threads: 1
+    resources:
+        mem_mb=config['memory'],
+        time='08:00:00',
+        partition=config['partition'],
+    input:
+        rmd='initial_analysis.Rmd',
+        sample_table=config["sample_table"],
+    output:
+        html=config["output_initial_html"],
+        rds=output_initial,
+    shell:
+        r"""
+        Rscript -e "rmarkdown::render(input = '{input.rmd}', output_file = '{output.html}', params = list(sample_table = '{input.sample_table}', nFeature_cutoff = "{config[nFeature_cutoff]}", organism = '{config[organism]}', title = '{config[title_initial]}', min_cells = "{config[min_cells]}", min_features = "{config[min_features]}", mito_cutoff = "{config[mito_cutoff]}", ribo_cutoff = "{config[ribo_cutoff]}", output_rds_dir = '{config[output_rds_dir]}', mouse_rds = '{config[mouse_rds_dir]}', initial_dims = "{config[initial_dims]}", initial_resolution = "{config[initial_resolution]}"))"
+        """
+
+rule rmd_doublet_finder:
+    threads: 1
+    resources:
+        mem_mb=config['memory'],
+        time='08:00:00',
+        partition=config['partition'],
+    input:
+        rmd='doublet_finder.Rmd',
+        object=config["output_rds_dir"] + config["input_df_object"],
+    output:
+        html=config["output_df_html"],
+        rds=output_df,
+    shell:
+        r"""
+        Rscript -e "rmarkdown::render(input = '{input.rmd}', output_file = '{output.html}', params = list(input_object = '{input.object}', title = '{config[title_df]}', split_by = '{config[split_by]}', object_dir = '{config[output_rds_dir]}', doublet_formation_rate = "{config[doublet_formation_rate]}", organism = '{config[organism]}', mouse_rds = '{config[mouse_rds_dir]}', initial_dims = "{config[initial_dims]}", initial_resolution = "{config[initial_resolution]}"))"
+        """
+
+
+def integration_mem(wildcards, attempt):
+    mem = config['starting_memory_integration'] * attempt
+    return '%dG' % mem
+
+rule rmd_integration:
+    threads: 1
+    resources:
+        mem_mb=integration_mem,
+        time=config['integration_time'],
+        partition=config['partition']
+    input:
+        rmd='integration.Rmd',
+        sample_table=config["sample_table"],
+        object=config["output_rds_dir"] + config["input_integration_object"]
+    output:
+        html=config["output_integration_html"],
+    shell:
+        r"""
+        Rscript -e "rmarkdown::render(input = '{input.rmd}', output_file = '{output.html}', params = list(sample_table = '{input.sample_table}', input_object = '{input.object}', title = '{config[title_integration]}', n_cols = "{config[n_cols]}", object_dir = '{config[output_rds_dir]}', integration_dims = "{config[integration_dims]}", integration_resolution = "{config[integration_resolution]}",integration_npcs = "{config[integration_npcs]}", evaluate_reproducibility_on = '{config[evaluate_reproducibility_on]}'))"
+        """
+
+rule rmd_common_report:
+    threads: 1
+    resources:
+        mem_mb=config['memory'],
+        time='04:00:00',
+        partition=config['partition'],
+    input:
+        rmd='final_report.Rmd',
+        sample_table=config["sample_table"],
+        html=config["output_integration_html"]
+    output:
+        html=config["common_report_html"]
+    shell:
+        r"""
+        Rscript -e "rmarkdown::render(input = '{input.rmd}', output_file = '{output.html}', params = list(sample_table = '{input.sample_table}', title = '{config[title_common_report]}'))"
+        """
+
