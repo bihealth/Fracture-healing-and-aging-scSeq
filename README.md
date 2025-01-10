@@ -15,8 +15,8 @@ Run the scripts under the processing folder
 
 ## To generate the figures
 The seurat object to reproduce the figures can be downloaded from zenodo:
-´´´
+```
 - git clone ["repo"](https://github.com/bihealth/Fracture-healing-and-aging-scSeq.git)
 - cd Figures / data
 - wget "zenodo link"
-´´´
+```
