@@ -13,10 +13,10 @@ Single cell bone healing
 ## For the processing:
 Run the scripts under the processing folder
 
-## To generate the figures
-The seurat object to reproduce the figures can be downloaded from zenodo:
+## Figures in the publication
+The seurat object to reproduce the figures can be downloaded from  ["zenodo link"](https://zenodo.org/uploads/13990107):
 
 - git clone ["repo"](https://github.com/bihealth/Fracture-healing-and-aging-scSeq.git)
 - cd Figures / data
-- wget ["zenodo link"](https://zenodo.org/uploads/13990107)
+- run `script/Figures.ipynb`
 
