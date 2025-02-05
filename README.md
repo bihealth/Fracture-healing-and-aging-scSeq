@@ -6,7 +6,7 @@ Single cell bone healing
 
 # Quick Start
 ## For the preprocessing
-- Download the fastq files from GEO: GSE273792.
+- Download the fastq files from GEO: [GSE273792](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE273792).
 - Run under Preprocessing/cellranger
 - Run under Pre-processing: the single cell pipeline
 
@@ -18,5 +18,5 @@ The seurat object to reproduce the figures can be downloaded from zenodo:
 ```
 - git clone ["repo"](https://github.com/bihealth/Fracture-healing-and-aging-scSeq.git)
 - cd Figures / data
-- wget "zenodo link"
+- wget ["zenodo link"](https://zenodo.org/uploads/13990107)
 ```
