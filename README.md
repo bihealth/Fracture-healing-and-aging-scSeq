@@ -22,6 +22,7 @@ The seurat object to reproduce the figures can be downloaded from  ["zenodo link
 - run `Figures/Scripts/fig1.rmd ... Figures/Scripts/fig5.rmd` to generate figure 2-6 and supplemental figures of the maunscript.
     - Input data for fig1(SFig1), fig2(SFig2), fig3(SFig3) and fig5(SFig5): `data/sobj_group_force_final_version.rds` and `data/sobj_hto.rds`
     - Input data for fig4(SFig4): `data/HSC_pseudotime_correct.rds`
+- To render all the figures from the shell run `Figures/render_all.sh`
   
     
 
