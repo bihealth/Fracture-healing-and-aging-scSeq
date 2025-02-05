@@ -7,7 +7,7 @@ Single cell bone healing
 # Quick Start
 ## For the preprocessing
 - Download the fastq files from GEO: [GSE273792](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE273792).
-- Run under Preprocessing/cellranger
+- Run under Preprocessing: cellranger
 - Run under Pre-processing: the single cell pipeline
 
 ## For the processing:
