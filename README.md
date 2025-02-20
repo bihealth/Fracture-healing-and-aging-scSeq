@@ -1,19 +1,19 @@
 # Project description
-Single cell bone healing
-# Contacts and links
+The scripts for Tchouto et. al paper on pronounced B cell impairment in adult immune-experienced mice (doi: 10.3389/fimmu.2025.1511902)
+## Contacts and links
 - P.I: Georg Duda, Dieter Beule
 - CUBI Contact: [Miha Milek] [mailto:milek@bih-charite.de]
 
-# Quick Start
-## For the preprocessing
+## Quick Start
+### For the preprocessing
 - Download the fastq files from GEO: [GSE273792](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE273792).
 - Run under Preprocessing: cellranger
 - Run under Pre-processing: the single cell pipeline
 
-## For the processing:
+### For the processing:
 Run the scripts under the processing folder to correct for any batch effects and integrate the data
 
-## Figures in the publication
+### Figures in the publication
 The seurat object to reproduce the figures can be downloaded from  ["zenodo link"](https://zenodo.org/uploads/13990107):
 
 - git clone ["repo"](https://github.com/bihealth/Fracture-healing-and-aging-scSeq.git)
