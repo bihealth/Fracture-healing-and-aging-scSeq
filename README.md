@@ -19,10 +19,8 @@ The seurat object to reproduce the figures can be downloaded from  ["zenodo link
 - git clone ["repo"](https://github.com/bihealth/Fracture-healing-and-aging-scSeq.git)
 - cd `.../Figures`
 - Add the downloaded seurat objet to the folder `Figures/data`. To install all the packages that are useful for creating the figures, use the already created environments in `Figures/envs`
-- run `Figures/Scripts/fig1.rmd ... Figures/Scripts/fig5.rmd` to generate figure 2-6 and supplemental figures of the maunscript.
-    - Input data for fig1 (SFig1), fig2 (SFig2), fig3 (SFig3) and fig5 (SFig5): `data/sobj_group_force_final_version.rds` and `data/sobj_hto.rds`
-    - Input data for fig4 (SFig4): `data/HSC_pseudotime_correct.rds`
-- To render all the figures from the shell run `Figures/render_all.sh`
+- run `Figures/Scripts/fig1.rmd ... Figures/Scripts/fig5.rmd` to generate figure 2-6 and supplemental figures of the maunscript. Input data for the figures are found all in the folder `Figures/data`
+
   
     
 
