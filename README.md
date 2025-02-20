@@ -1,5 +1,5 @@
 # Project description
-The scripts for Tchouto et. al paper on pronounced B cell impairment in adult immune-experienced mice [doi] [10.3389/fimmu.2025.1511902]
+The scripts for Tchouto et. al paper on pronounced B cell impairment in adult immune-experienced mice [doi] (10.3389/fimmu.2025.1511902)
 ## Contacts and links
 - P.I: Georg Duda, Dieter Beule
 - CUBI Contact: [Miha Milek] [mailto:milek@bih-charite.de]
