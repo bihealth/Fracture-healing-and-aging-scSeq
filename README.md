@@ -2,10 +2,10 @@
 The scripts for Tchouto et. al paper on pronounced B cell impairment in adult immune-experienced mice [link to article](https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2025.1511902/abstract).
 
 ## Data source
-The data used in this repository was provided by:  
-- Christian H. Bucher (Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration)
-- Ann-Kathrin Mess (Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration)
-- Katharina Schmidt-Bleek (Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration)
+The data used in this repository were provided by the following contributors from the Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration:  
+- Dr. Christian H. Bucher 
+- Ann-Kathrin Mess 
+- Dr. Katharina Schmidt-Bleek
 
 ## Contacts and links
 - P.I: Georg Duda, Dieter Beule
@@ -13,7 +13,7 @@ The data used in this repository was provided by:
 
 ## Quick Start
 ### For the preprocessing
-- Download the fastq files from GEO: [GSE273792](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE273792).
+- Download the FASTQ files from GEO (data owned by Dr. Christian H. Bucher): [GSE273792](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE273792).
 - Run under Preprocessing: cellranger
 - Run under Pre-processing: the single cell pipeline
 
@@ -21,7 +21,7 @@ The data used in this repository was provided by:
 Run the scripts under the processing folder to correct for any batch effects and integrate the data
 
 ### Figures in the publication
-The seurat object to reproduce the figures can be downloaded from  ["zenodo link"](https://zenodo.org/uploads/13990107):
+The Seurat object used to reproduce the figures—based on data owned by Dr. Christian H. Bucher—can be downloaded from  ["zenodo link"](https://zenodo.org/uploads/13990107):
 
 - git clone ["repo"](https://github.com/bihealth/Fracture-healing-and-aging-scSeq.git)
 - cd `.../Figures`
