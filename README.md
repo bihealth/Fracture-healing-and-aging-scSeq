@@ -1,5 +1,12 @@
 # Project description
 The scripts for Tchouto et. al paper on pronounced B cell impairment in adult immune-experienced mice [link to article](https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2025.1511902/abstract).
+
+## Data source
+The data used in this repository was provided by:  
+- [Christian H. Bucher] [Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration]
+- [Ann-Kathrin Mess] [Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration]
+- [Katharina Schmidt-Bleek] [Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration]
+
 ## Contacts and links
 - P.I: Georg Duda, Dieter Beule
 - CUBI Contact: [Miha Milek] [mailto:milek@bih-charite.de]
