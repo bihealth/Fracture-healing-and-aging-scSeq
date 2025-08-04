@@ -3,9 +3,9 @@ The scripts for Tchouto et. al paper on pronounced B cell impairment in adult im
 
 ## Data source
 The data used in this repository was provided by:  
-- [Christian H. Bucher] [Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration]
-- [Ann-Kathrin Mess] [Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration]
-- [Katharina Schmidt-Bleek] [Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration]
+- Christian H. Bucher (Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration)
+- Ann-Kathrin Mess (Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration)
+- Katharina Schmidt-Bleek (Julius Wolff Institute of Biomechanics and Musculoskeletal Regeneration)
 
 ## Contacts and links
 - P.I: Georg Duda, Dieter Beule
